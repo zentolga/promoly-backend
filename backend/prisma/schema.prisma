@@ -1,0 +1,160 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model StoreProfile {
+  id              String   @id @default("default")
+  storeName       String   @default("Mein Markt")
+  logoPath        String?
+  addressLine1    String?
+  postalCode      String?
+  city            String?
+  phone           String?
+  whatsappE164    String?
+  openingHours_de String?
+  instagramUrl    String?
+  facebookUrl     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Category {
+  id        String    @id @default(uuid())
+  name_de   String
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  Product[]
+}
+
+model Product {
+  id            String         @id @default(uuid())
+  name_de       String
+  brand         String?
+  unitText      String         @default("Stück")
+  imagePath     String?
+  categoryId    String?
+  category      Category?      @relation(fields: [categoryId], references: [id])
+  active        Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  campaignItems CampaignItem[]
+}
+
+enum CampaignStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model Campaign {
+  id          String         @id @default(uuid())
+  title_de    String
+  dateFrom    DateTime
+  dateTo      DateTime
+  status      CampaignStatus @default(DRAFT)
+  themeId     String         @default("kaufland_orange")
+  heroTitle_de String?
+  backgroundImage String?   // Path to uploaded background image
+  defaultCardTexture String?
+  showBorders Boolean     @default(true)
+  flyerJson   Json?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  items       CampaignItem[]
+  flyerAssets FlyerAsset[]
+}
+
+model CampaignItem {
+  id         String   @id @default(uuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  
+  // Product Logic (Optional for Visual Items)
+  productId  String?
+  product    Product? @relation(fields: [productId], references: [id])
+  
+  // Visual Item Properties
+  type       String   @default("product") // 'product', 'logo', 'slogan', 'sticker'
+  text       String?  // For slogans
+  imagePath  String?  // For stickers/custom images
+  stickerEmoji String?
+  stickerType String?
+  cardTexture String?
+  cardBgMode String?
+  priceTagBg String?
+  rotation   Int      @default(0)
+  fontSize   Int      @default(32)
+  color      String?
+  zIndex     Int      @default(10)
+  opacity    Float    @default(1.0)
+  
+  // Product/Price Properties
+  oldPrice   Float?   // Optional for slogans
+  newPrice   Float?   // Optional for slogans
+  
+  // Styling
+  slogan     String?  // For product cards
+  priceStyle String?  // For product cards
+  
+  badgeText  String?
+  labelText  String?
+  limitText  String?
+  
+  // Position
+  posX       Int      @default(0)
+  posY       Int      @default(0)
+  width      Int      @default(3)
+  height     Int      @default(4)
+  
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([campaignId])
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  phoneE164 String   @unique
+  name      String?
+  optedIn   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum FlyerType {
+  BESTOF_PDF
+  BESTOF_POST_PNG
+  BESTOF_STORY_PNG
+  CATEGORY_PDF
+}
+
+model FlyerAsset {
+  id         String    @id @default(uuid())
+  campaignId String
+  campaign   Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  type       FlyerType
+  filePath   String
+  createdAt  DateTime  @default(now())
+
+  @@index([campaignId])
+}
+
+enum MessageDirection {
+  IN
+  OUT
+}
+
+model MessageLog {
+  id          String           @id @default(uuid())
+  direction   MessageDirection
+  phoneE164   String
+  payloadJson Json
+  status      String           @default("sent")
+  createdAt   DateTime         @default(now())
+}

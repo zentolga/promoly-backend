@@ -1,0 +1,40 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Testing
+coverage
+
+# Production
+dist
+build
+
+# Misc
+.DS_Store
+*.pem
+
+# Environment variables
+.env
+.env.test
+.env.production
+.env.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Docker
+docker-compose.override.yml
+
+# Editors
+.vscode
+.idea
+
+# Local/Temp
+debug-flyer.js
+test-buttons.js
+trigger-webhook.js
+test-poll-response.js
+.netlify

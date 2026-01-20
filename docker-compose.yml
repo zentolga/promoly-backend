@@ -1,0 +1,20 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: promoly_db
+    environment:
+      POSTGRES_USER: promoly
+      POSTGRES_PASSWORD: promoly123
+      POSTGRES_DB: promoly
+    ports:
+      - "5433:5432"
+    volumes:
+      - promoly_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U promoly" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  promoly_data:
