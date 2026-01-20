@@ -2,10 +2,10 @@
     "name": "promoly-backend",
     "version": "1.0.0",
     "scripts": {
-        "build": "nest build",
+        "build": "nest build && echo '--- BUILD OUTPUT START ---' && ls -R dist && echo '--- BUILD OUTPUT END ---'",
         "start": "node dist/main",
         "start:dev": "nest start --watch",
-        "start:prod": "node dist/main",
+        "start:prod": "echo '--- RUNTIME START ---' && ls -R dist && node dist/main",
         "prisma:generate": "prisma generate",
         "prisma:migrate": "prisma migrate dev",
         "prisma:seed": "ts-node prisma/seed.ts"
