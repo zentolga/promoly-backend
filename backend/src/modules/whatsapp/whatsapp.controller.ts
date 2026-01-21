@@ -1,15 +1,25 @@
-import { Controller, Get, Post, Query, Body, Res, HttpStatus } from '@nestjs/common';
-import { Response } from 'express';
-import { WhatsappService } from './whatsapp.service';
+// InMemory Debug Storage
+export const DEBUG_LOGS: any[] = [];
 
 @Controller('whatsapp')
 export class WhatsappController {
     constructor(private readonly service: WhatsappService) { }
 
-
+    @Get('debug-logs')
+    getDebugLogs() {
+        return DEBUG_LOGS.reverse(); // Newest first
+    }
 
     @Post('webhook')
     async receive(@Body() body: any, @Res() res: Response) {
+        // Store payload for debugging
+        DEBUG_LOGS.push({
+            time: new Date().toISOString(),
+            type: body.event || 'unknown',
+            body
+        });
+        if (DEBUG_LOGS.length > 50) DEBUG_LOGS.shift(); // Keep last 50
+
         console.log('[Webhook] RAW PAYLOAD:', JSON.stringify(body));
 
         // Universal Message Extractor
