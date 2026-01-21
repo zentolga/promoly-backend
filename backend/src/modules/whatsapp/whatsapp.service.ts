@@ -7,6 +7,20 @@ export class WhatsappService {
 
 
 
+    async getDebugCampaign() {
+        try {
+            return await this.prisma.campaign.findFirst({
+                where: { status: 'PUBLISHED' },
+                include: {
+                    items: { include: { product: true }, orderBy: { posY: 'asc' } },
+                    flyerAssets: { orderBy: { createdAt: 'desc' } },
+                },
+            });
+        } catch (e: any) {
+            return { error: e.message, stack: e.stack };
+        }
+    }
+
     async handleIncoming(phone: string, textRaw: string) {
         const text = textRaw.toLowerCase().trim();
         console.log(`[Service] Processing message from ${phone}: ${text}`);

@@ -14,6 +14,11 @@ export class WhatsappController {
         return WhatsappController.debugLogs.reverse(); // Newest first
     }
 
+    @Get('debug-campaign-error')
+    async getCampaignDebug() {
+        return this.service.getDebugCampaign();
+    }
+
     @Post('webhook')
     async receive(@Body() body: any, @Res() res: Response) {
         // 1. Store payload for debugging
