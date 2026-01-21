@@ -49,11 +49,37 @@ export class WhatsappController {
                     }
                 }
             }
+            // Path C: 'poll.results' (Vote Event)
+            else if (body.event === 'poll.results' && data.pollResult) {
+                await this.processPollResult(data);
+            }
         } catch (e) {
             console.error('[Webhook] Component Error:', e);
         }
 
         return res.status(HttpStatus.OK).send('EVENT_RECEIVED');
+    }
+
+    // Helper to process Poll Results (Specific Event)
+    async processPollResult(data: any) {
+        const results = data.pollResult;
+        const key = data.key;
+        if (!results || !key) return;
+
+        // Find the option with voters 
+        // Logic: Valid vote has voters array with current user's ID
+        // Simplified: Just check which option has > 0 voters
+        const votedOption = results.find((opt: any) => opt.voters && opt.voters.length > 0);
+
+        if (votedOption) {
+            const sender = key.remoteJid?.split('@')[0];
+            const text = votedOption.name;
+            console.log(`[Webhook] Poll Vote (Event): ${sender} chose ${text}`);
+
+            if (sender && text) {
+                await this.service.handleIncoming(sender, text);
+            }
+        }
     }
 
     // Helper to process a single message node
