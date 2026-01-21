@@ -18,7 +18,7 @@ import { BroadcastModule } from './modules/broadcast/broadcast.module';
 @Module({
     imports: [
         ServeStaticModule.forRoot({
-            rootPath: join(__dirname, '..', '..', 'storage'),
+            rootPath: join(process.cwd(), 'storage'),
             serveRoot: '/files',
         }),
         PrismaModule,
