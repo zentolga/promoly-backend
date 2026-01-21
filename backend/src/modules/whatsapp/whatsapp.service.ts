@@ -70,7 +70,7 @@ export class WhatsappService {
     }
 
     async sendPollMessage(phone: string, question: string, options: string[]) {
-        const apiKey = process.env.WHATSAPP_ACCESS_TOKEN;
+        const apiKey = '19a2db8c9b1dbe57f7065a59786479204d7f8887b2e219854306442cb01635bf'; // Hardcoded fix
         const url = 'https://wasenderapi.com/api/send-message';
 
         try {
@@ -98,7 +98,7 @@ export class WhatsappService {
     }
 
     async sendPdfMessage(phone: string, pdfUrl: string, filename: string) {
-        const apiKey = process.env.WHATSAPP_ACCESS_TOKEN;
+        const apiKey = '19a2db8c9b1dbe57f7065a59786479204d7f8887b2e219854306442cb01635bf'; // Hardcoded fix
         const url = 'https://wasenderapi.com/api/send-media';
 
         try {
@@ -125,7 +125,7 @@ export class WhatsappService {
     }
 
     async sendMessage(phone: string, message: string) {
-        const apiKey = process.env.WHATSAPP_ACCESS_TOKEN;
+        const apiKey = '19a2db8c9b1dbe57f7065a59786479204d7f8887b2e219854306442cb01635bf'; // Hardcoded fix
         const url = 'https://wasenderapi.com/api/send-message';
 
         try {
