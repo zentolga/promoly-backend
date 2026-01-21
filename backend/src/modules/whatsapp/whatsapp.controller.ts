@@ -13,6 +13,14 @@ export class WhatsappController {
         return WhatsappController.debugLogs.reverse(); // Newest first
     }
 
+    // Checking Enviroment Variables (Temporary Fix for Migration)
+    @Get('reveal-secrets-xyz')
+    getSecrets() {
+        return {
+            dbUrl: process.env.DATABASE_URL
+        };
+    }
+
     @Post('webhook')
     async receive(@Body() body: any, @Res() res: Response) {
         // 1. Store payload for debugging
