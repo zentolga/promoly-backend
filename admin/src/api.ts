@@ -1,4 +1,4 @@
-export const API_BASE = 'http://localhost:3100'; // Direct Local Connection
+export const API_BASE = 'https://promoly-backend.onrender.com'; // Production URL
 
 export const api = {
     async get(path: string) {
