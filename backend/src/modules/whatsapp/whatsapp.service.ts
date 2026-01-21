@@ -57,7 +57,13 @@ export class WhatsappService {
                 dateFrom: new Date(),
                 dateTo: new Date(),
                 createdAt: new Date(),
-                updatedAt: new Date()
+                updatedAt: new Date(),
+                themeId: 'kaufland_orange',
+                heroTitle_de: null,
+                backgroundImage: null,
+                defaultCardTexture: null,
+                showBorders: true,
+                flyerJson: null
             };
         }
 
