@@ -10,25 +10,46 @@ export class WhatsappController {
 
     @Post('webhook')
     async receive(@Body() body: any, @Res() res: Response) {
-        // Wasender sends { event: 'messages.received', data: { messages: ... } }
-        // Also handling 'messages.upsert' or 'messages.update' for POLL RESPONSES
-        const event = body.event;
-        const msgData = body.data?.messages || body.data;
+        // Debug: Log the exact payload to identify Poll structure
+        console.log('[Webhook] RAW PAYLOAD:', JSON.stringify(body));
 
-        if (msgData) {
-            // Standard Text Message
-            let sender = msgData.key?.cleanedSenderPn || msgData.key?.remoteJid?.split('@')[0];
-            let text = msgData.messageBody || msgData.message?.conversation || msgData.message?.extendedTextMessage?.text;
+        // Wasender can send 'data.messages' as an Array or a single object in 'data'
+        const messages = Array.isArray(body.data?.messages)
+            ? body.data.messages
+            : Array.isArray(body.data) ? body.data : [body.data];
 
-            // HANDLE POLL VOTE (pollUpdateMessage)
-            if (msgData.message?.pollUpdateMessage) {
-                const vote = msgData.message.pollUpdateMessage.vote;
+        for (const msg of messages) {
+            if (!msg) continue;
+
+            // 1. Extract Sender
+            const sender = msg.key?.cleanedSenderPn || msg.key?.remoteJid?.split('@')[0];
+
+            // 2. Extract Text (covering Text, Buttons, Polls)
+            let text = '';
+
+            // A. Normal Text
+            if (msg.message?.conversation) text = msg.message.conversation;
+            else if (msg.message?.extendedTextMessage?.text) text = msg.message.extendedTextMessage.text;
+            else if (msg.messageBody) text = msg.messageBody; // Fallback
+
+            // B. Poll Vote
+            else if (msg.message?.pollUpdateMessage) {
+                const vote = msg.message.pollUpdateMessage.vote;
                 if (vote?.selectedOptions?.length > 0) {
-                    text = vote.selectedOptions[0].name; // Extract the voted option text (e.g. "Weitere Angebote")
-                    console.log(`[Webhook] Poll Vote Detected: ${text}`);
+                    text = vote.selectedOptions[0].name;
+                    console.log(`[Webhook] Poll Vote: ${text}`);
                 }
             }
 
+            // C. Button Response (if using buttons)
+            else if (msg.message?.buttonsResponseMessage) {
+                text = msg.message.buttonsResponseMessage.selectedButtonId || msg.message.buttonsResponseMessage.selectedDisplayText;
+            }
+            else if (msg.message?.templateButtonReplyMessage) {
+                text = msg.message.templateButtonReplyMessage.selectedId || msg.message.templateButtonReplyMessage.selectedDisplayText;
+            }
+
+            // 3. Process
             if (sender && text) {
                 console.log(`[Webhook] Processing from ${sender}: ${text}`);
                 try {
@@ -39,7 +60,6 @@ export class WhatsappController {
             }
         }
 
-        // Always return 200 OK to acknowledge receipt
         return res.status(HttpStatus.OK).send('EVENT_RECEIVED');
     }
 
