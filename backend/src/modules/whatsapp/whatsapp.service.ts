@@ -48,7 +48,7 @@ export class WhatsappService {
             return;
         }
 
-        const baseUrl = 'https://promoly-backend-zento.loca.lt';
+        const baseUrl = process.env.PUBLIC_BASE_URL || 'https://promoly-backend-zento.loca.lt';
         const asset = await this.prisma.flyerAsset.findFirst({
             where: { campaignId: campaign.id, type: 'BESTOF_PDF' },
             orderBy: { createdAt: 'desc' }
@@ -57,12 +57,16 @@ export class WhatsappService {
         let pdfLink = `${baseUrl}/flyers/${campaign.id}/pdf`;
         if (asset) pdfLink = `${baseUrl}/files/${asset.filePath}`;
 
+        // Send the text caption first
         const caption = `🔥 *${campaign.title_de}*\n\nHier ist Ihr Prospekt für diese Woche:`;
-        await this.sendMessage(phone, `${caption}\n${pdfLink}`);
+        await this.sendMessage(phone, caption);
+
+        // Then send the actual PDF file
+        await this.sendPdfMessage(phone, pdfLink, campaign.title_de);
     }
 
     async sendPollMessage(phone: string, question: string, options: string[]) {
-        const apiKey = '19a2db8c9b1dbe57f7065a59786479204d7f8887b2e219854306442cb01635bf';
+        const apiKey = process.env.WHATSAPP_ACCESS_TOKEN;
         const url = 'https://wasenderapi.com/api/send-message';
 
         try {
@@ -89,8 +93,35 @@ export class WhatsappService {
         }
     }
 
+    async sendPdfMessage(phone: string, pdfUrl: string, filename: string) {
+        const apiKey = process.env.WHATSAPP_ACCESS_TOKEN;
+        const url = 'https://wasenderapi.com/api/send-media';
+
+        try {
+            console.log('[WhatsApp] Sending PDF to', phone);
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    to: phone.includes('+') ? phone : `+${phone}`,
+                    media: pdfUrl,
+                    type: 'document',
+                    filename: `${filename}.pdf`,
+                    caption: filename
+                })
+            });
+            const textResponse = await res.text();
+            console.log('[WhatsApp] PDF Send Result:', textResponse);
+        } catch (e) {
+            console.error('[WhatsApp] PDF Send Failed:', e);
+        }
+    }
+
     async sendMessage(phone: string, message: string) {
-        const apiKey = '19a2db8c9b1dbe57f7065a59786479204d7f8887b2e219854306442cb01635bf';
+        const apiKey = process.env.WHATSAPP_ACCESS_TOKEN;
         const url = 'https://wasenderapi.com/api/send-message';
 
         try {
