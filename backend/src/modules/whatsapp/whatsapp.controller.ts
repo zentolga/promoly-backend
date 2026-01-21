@@ -28,12 +28,26 @@ export class WhatsappController {
         // Universal Message Extractor
         let messages: any[] = [];
 
-        if (Array.isArray(body.data?.messages)) {
-            messages = body.data.messages;
-        } else if (body.data?.chats && Array.isArray(body.data.chats.messages)) {
-            // Handle 'chats.update' structure
-            messages = body.data.chats.messages;
-        } else if (Array.isArray(body.data)) {
+        if (body.data?.messages) {
+            // Case 1: data.messages is an Array (Standard)
+            if (Array.isArray(body.data.messages)) {
+                messages = body.data.messages;
+            }
+            // Case 2: data.messages is a Single Object (Upsert/Personal) - THIS WAS THE BUG
+            else {
+                messages = [body.data.messages];
+            }
+        }
+        else if (body.data?.chats) {
+            // Case 3: chats.update (data.chats -> messages)
+            if (Array.isArray(body.data.chats.messages)) {
+                messages = body.data.chats.messages;
+            } else if (body.data.chats.messages) {
+                // Case 3b: chats.updata -> messages (Object?)
+                messages = [body.data.chats.messages];
+            }
+        }
+        else if (Array.isArray(body.data)) {
             messages = body.data;
         } else if (body.data) {
             messages = [body.data];
