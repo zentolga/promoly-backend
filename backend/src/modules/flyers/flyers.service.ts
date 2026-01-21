@@ -68,6 +68,67 @@ export class FlyersService {
         return files.filter(f => /\.(jpg|jpeg|png|webp)$/i.test(f)).map(f => `backgrounds/${f}`);
     }
 
+    // Helper to find the browser executable in Docker environments
+    private resolveBrowserPath(): string | undefined {
+        // 1. Try environment variable
+        if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) return process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+
+        // 2. Try standard Playwright image location
+        // The folder name changes with version (e.g., chromium-1091), so we scan for it.
+        const msPlaywrightDir = '/ms-playwright';
+        if (fs.existsSync(msPlaywrightDir)) {
+            const files = fs.readdirSync(msPlaywrightDir);
+            const chromiumDir = files.find(f => f.startsWith('chromium-'));
+            if (chromiumDir) {
+                // Path: /ms-playwright/chromium-XXXX/chrome-linux/chrome
+                const execPath = path.join(msPlaywrightDir, chromiumDir, 'chrome-linux', 'chrome');
+                if (fs.existsSync(execPath)) return execPath;
+            }
+        }
+
+        // 3. Try standard Linux locations (Alpine/Debian)
+        const commonPaths = [
+            '/usr/bin/chromium',
+            '/usr/bin/chromium-browser',
+            '/usr/bin/google-chrome'
+        ];
+        for (const p of commonPaths) {
+            if (fs.existsSync(p)) return p;
+        }
+
+        return undefined; // Let Playwright try its default
+    }
+
+    private async renderToPdf(html: string, campaignId: string) {
+        const executablePath = this.resolveBrowserPath();
+        console.log(`Launching Browser with path: ${executablePath || 'Auto-detect'}`);
+
+        const browser = await chromium.launch({
+            executablePath,
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
+        });
+        const page = await browser.newPage();
+        await page.setContent(html, { waitUntil: 'networkidle' });
+        const pdfBuffer = await page.pdf({ width: '794px', height: '1123px', printBackground: true });
+        await browser.close();
+        return this.saveFile(pdfBuffer, campaignId, 'flyers', 'pdf');
+    }
+
+    private async renderToPng(html: string, campaignId: string, width: number, height: number, suffix: string) {
+        const executablePath = this.resolveBrowserPath();
+        console.log(`Launching Browser with path: ${executablePath || 'Auto-detect'}`);
+
+        const browser = await chromium.launch({
+            executablePath,
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
+        });
+        const page = await browser.newPage({ viewport: { width, height } });
+        await page.setContent(html, { waitUntil: 'networkidle' });
+        const pngBuffer = await page.screenshot({ type: 'png', fullPage: false });
+        await browser.close();
+        return this.saveFile(pngBuffer, campaignId, 'flyers', `${suffix}.png`);
+    }
+
     private async getCampaignWithItems(id: string) {
         const c = await this.prisma.campaign.findUnique({
             where: { id },
@@ -76,71 +137,69 @@ export class FlyersService {
         if (!c) throw new NotFoundException('Kampagne nicht gefunden');
         return c;
     }
+    const theme = THEMES[campaign.themeId] || THEMES.kaufland_orange;
+    const dateFrom = new Date(campaign.dateFrom).toLocaleDateString('de-DE');
+    const dateTo = new Date(campaign.dateTo).toLocaleDateString('de-DE');
 
-    private buildFlyerHtml(campaign: any, store: any, format: 'A4' | 'post' | 'story') {
-        const theme = THEMES[campaign.themeId] || THEMES.kaufland_orange;
-        const dateFrom = new Date(campaign.dateFrom).toLocaleDateString('de-DE');
-        const dateTo = new Date(campaign.dateTo).toLocaleDateString('de-DE');
-
-        // Editor Constants
-        const A4_WIDTH = 794;
-        const A4_HEIGHT = 1123;
-        const COL_WIDTH = A4_WIDTH / 12; // ~66.16px
-        const ROW_HEIGHT = 60;
+    // Editor Constants
+    const A4_WIDTH = 794;
+    const A4_HEIGHT = 1123;
+    const COL_WIDTH = A4_WIDTH / 12; // ~66.16px
+    const ROW_HEIGHT = 60;
 
         let width = A4_WIDTH;
-        // Calculate dynamic height based on items max Y
-        let totalHeight = A4_HEIGHT;
-        if (format === 'A4') {
-            const maxY = Math.max(...campaign.items.map(i => (i.posY + i.height) * ROW_HEIGHT), 0);
-            const contentHeight = maxY + 200; // Buffer for header/footer
-            // Round up to nearest page
-            const pages = Math.ceil(Math.max(contentHeight, A4_HEIGHT) / A4_HEIGHT);
-            totalHeight = pages * A4_HEIGHT;
-        } else {
-            width = 1080;
-            totalHeight = format === 'post' ? 1350 : 1920;
-        }
+// Calculate dynamic height based on items max Y
+let totalHeight = A4_HEIGHT;
+if (format === 'A4') {
+    const maxY = Math.max(...campaign.items.map(i => (i.posY + i.height) * ROW_HEIGHT), 0);
+    const contentHeight = maxY + 200; // Buffer for header/footer
+    // Round up to nearest page
+    const pages = Math.ceil(Math.max(contentHeight, A4_HEIGHT) / A4_HEIGHT);
+    totalHeight = pages * A4_HEIGHT;
+} else {
+    width = 1080;
+    totalHeight = format === 'post' ? 1350 : 1920;
+}
 
-        const renderItem = (item: any) => {
-            const x = item.posX * COL_WIDTH;
-            const y = item.posY * ROW_HEIGHT;
-            const w = item.width * COL_WIDTH;
-            const h = item.height * ROW_HEIGHT;
+const renderItem = (item: any) => {
+    const x = item.posX * COL_WIDTH;
+    const y = item.posY * ROW_HEIGHT;
+    const w = item.width * COL_WIDTH;
+    const h = item.height * ROW_HEIGHT;
 
-            // --- RENDER LOGO ---
-            if (item.type === 'logo') {
-                return `<div style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;display:flex;align-items:center;justify-content:center;z-index:${item.zIndex || 10};">
+    // --- RENDER LOGO ---
+    if (item.type === 'logo') {
+        return `<div style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;display:flex;align-items:center;justify-content:center;z-index:${item.zIndex || 10};">
                     ${store.logoPath ? `<img src="http://localhost:3100/files/${store.logoPath}" style="max-width:100%;max-height:100%;object-fit:contain;" />` : `<div style="font-size:24px;font-weight:bold;">${store.storeName}</div>`}
                 </div>`;
-            }
+    }
 
-            // --- RENDER SLOGAN ---
-            if (item.type === 'slogan') {
-                return `<div style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;display:flex;align-items:center;justify-content:center;transform:rotate(${item.rotation || -15}deg);z-index:${item.zIndex || 50};">
+    // --- RENDER SLOGAN ---
+    if (item.type === 'slogan') {
+        return `<div style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;display:flex;align-items:center;justify-content:center;transform:rotate(${item.rotation || -15}deg);z-index:${item.zIndex || 50};">
                     <div style="font-size:${item.fontSize || 32}px;font-weight:900;color:${item.color || theme.accent};text-shadow:2px 2px 0 #fff;white-space:nowrap;">${item.text || 'KNÜLLER'}</div>
                 </div>`;
-            }
+    }
 
-            // --- RENDER STICKER ---
-            if (item.type === 'sticker') {
-                return `<div style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;display:flex;align-items:center;justify-content:center;z-index:${item.zIndex || 20};transform:rotate(${item.rotation || 0}deg);">
+    // --- RENDER STICKER ---
+    if (item.type === 'sticker') {
+        return `<div style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;display:flex;align-items:center;justify-content:center;z-index:${item.zIndex || 20};transform:rotate(${item.rotation || 0}deg);">
                     ${item.imagePath ? `<img src="http://localhost:3100/files/${item.imagePath}" style="max-width:100%;max-height:100%;object-fit:contain;" />` : '⭐'}
                 </div>`;
-            }
+    }
 
-            // --- RENDER PRODUCT ---
-            if (!item.product) return ''; // Safety
+    // --- RENDER PRODUCT ---
+    if (!item.product) return ''; // Safety
 
-            // Price Style Logic
-            let priceShapeClass = '';
-            if (item.priceStyle === 'starburst' || (!item.priceStyle && theme.priceShape === 'starburst')) priceShapeClass = 'starburst';
-            if (item.priceStyle === 'jagged' || (!item.priceStyle && theme.priceShape === 'jagged')) priceShapeClass = 'jagged';
-            if (item.priceStyle === 'circle' || (!item.priceStyle && theme.priceShape === 'circle')) priceShapeClass = 'circle';
+    // Price Style Logic
+    let priceShapeClass = '';
+    if (item.priceStyle === 'starburst' || (!item.priceStyle && theme.priceShape === 'starburst')) priceShapeClass = 'starburst';
+    if (item.priceStyle === 'jagged' || (!item.priceStyle && theme.priceShape === 'jagged')) priceShapeClass = 'jagged';
+    if (item.priceStyle === 'circle' || (!item.priceStyle && theme.priceShape === 'circle')) priceShapeClass = 'circle';
 
-            const slogan = item.slogan;
+    const slogan = item.slogan;
 
-            return `
+    return `
             <div class="product-card" style="position: absolute; left: ${x}px; top: ${y}px; width: ${w}px; height: ${h}px; border: ${campaign.showBorders !== false ? '1px solid #eee' : 'none'}; z-index: ${item.zIndex || 1};">
                 ${slogan ? `<div class="slogan">${slogan}</div>` : ''}
                 ${item.badgeText ? `<div class="badge ${priceShapeClass === 'jagged' ? 'circle' : ''}">${item.badgeText}</div>` : ''}
@@ -167,11 +226,11 @@ export class FlyersService {
                 </div>
                 ${item.limitText ? `<div class="limit">${item.limitText}</div>` : ''}
             </div>`;
-        };
+};
 
-        const itemsHtml = campaign.items.map(renderItem).join('');
+const itemsHtml = campaign.items.map(renderItem).join('');
 
-        return `<!DOCTYPE html>
+return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -224,34 +283,34 @@ export class FlyersService {
     }
 
     private async renderToPdf(html: string, campaignId: string) {
-        const browser = await chromium.launch();
-        const page = await browser.newPage();
-        await page.setContent(html, { waitUntil: 'networkidle' });
-        const pdfBuffer = await page.pdf({ width: '794px', height: '1123px', printBackground: true });
-        await browser.close();
-        return this.saveFile(pdfBuffer, campaignId, 'flyers', 'pdf');
-    }
+    const browser = await chromium.launch();
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle' });
+    const pdfBuffer = await page.pdf({ width: '794px', height: '1123px', printBackground: true });
+    await browser.close();
+    return this.saveFile(pdfBuffer, campaignId, 'flyers', 'pdf');
+}
 
     private async renderToPng(html: string, campaignId: string, width: number, height: number, suffix: string) {
-        const browser = await chromium.launch();
-        const page = await browser.newPage({ viewport: { width, height } });
-        await page.setContent(html, { waitUntil: 'networkidle' });
-        const pngBuffer = await page.screenshot({ type: 'png', fullPage: false });
-        await browser.close();
-        return this.saveFile(pngBuffer, campaignId, 'flyers', `${suffix}.png`);
-    }
+    const browser = await chromium.launch();
+    const page = await browser.newPage({ viewport: { width, height } });
+    await page.setContent(html, { waitUntil: 'networkidle' });
+    const pngBuffer = await page.screenshot({ type: 'png', fullPage: false });
+    await browser.close();
+    return this.saveFile(pngBuffer, campaignId, 'flyers', `${suffix}.png`);
+}
 
     private async saveFile(buffer: Buffer, campaignId: string, folder: string, ext: string) {
-        const storageDir = process.env.STORAGE_DIR || path.join(__dirname, '..', '..', '..', '..', 'storage');
-        const targetDir = path.join(storageDir, folder);
-        if (!fs.existsSync(targetDir)) await mkdir(targetDir, { recursive: true });
-        const filename = `${campaignId}-${Date.now()}.${ext}`;
-        await writeFile(path.join(targetDir, filename), buffer);
-        return `${folder}/${filename}`;
-    }
+    const storageDir = process.env.STORAGE_DIR || path.join(__dirname, '..', '..', '..', '..', 'storage');
+    const targetDir = path.join(storageDir, folder);
+    if (!fs.existsSync(targetDir)) await mkdir(targetDir, { recursive: true });
+    const filename = `${campaignId}-${Date.now()}.${ext}`;
+    await writeFile(path.join(targetDir, filename), buffer);
+    return `${folder}/${filename}`;
+}
 
     private async saveFlyerAsset(campaignId: string, type: any, filePath: string) {
-        const asset = await this.prisma.flyerAsset.create({ data: { campaignId, type, filePath } });
-        return { ...asset, url: `/files/${filePath}` };
-    }
+    const asset = await this.prisma.flyerAsset.create({ data: { campaignId, type, filePath } });
+    return { ...asset, url: `/files/${filePath}` };
+}
 }
