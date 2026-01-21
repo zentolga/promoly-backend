@@ -1,24 +1,23 @@
-// InMemory Debug Storage
-export const DEBUG_LOGS: any[] = [];
-
 @Controller('whatsapp')
 export class WhatsappController {
+    private static debugLogs: any[] = [];
+
     constructor(private readonly service: WhatsappService) { }
 
     @Get('debug-logs')
     getDebugLogs() {
-        return DEBUG_LOGS.reverse(); // Newest first
+        return WhatsappController.debugLogs.reverse(); // Newest first
     }
 
     @Post('webhook')
     async receive(@Body() body: any, @Res() res: Response) {
         // Store payload for debugging
-        DEBUG_LOGS.push({
+        WhatsappController.debugLogs.push({
             time: new Date().toISOString(),
             type: body.event || 'unknown',
             body
         });
-        if (DEBUG_LOGS.length > 50) DEBUG_LOGS.shift(); // Keep last 50
+        if (WhatsappController.debugLogs.length > 50) WhatsappController.debugLogs.shift(); // Keep last 50
 
         console.log('[Webhook] RAW PAYLOAD:', JSON.stringify(body));
 
