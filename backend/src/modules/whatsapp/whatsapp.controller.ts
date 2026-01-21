@@ -15,88 +15,83 @@ export class WhatsappController {
 
     @Post('webhook')
     async receive(@Body() body: any, @Res() res: Response) {
-        // Store payload for debugging
+        // 1. Store payload for debugging
         WhatsappController.debugLogs.push({
             time: new Date().toISOString(),
             type: body.event || 'unknown',
             body
         });
-        if (WhatsappController.debugLogs.length > 50) WhatsappController.debugLogs.shift(); // Keep last 50
+        if (WhatsappController.debugLogs.length > 50) WhatsappController.debugLogs.shift();
 
-        console.log('[Webhook] RAW PAYLOAD:', JSON.stringify(body));
+        // 2. Explicit Path Handling
+        const data = body.data;
+        if (!data) return res.status(HttpStatus.OK).send('NO_DATA');
 
-        // Universal Message Extractor
-        let messages: any[] = [];
+        console.log('[Webhook] Event:', body.event);
 
-        if (body.data?.messages) {
-            // Case 1: data.messages is an Array (Standard)
-            if (Array.isArray(body.data.messages)) {
-                messages = body.data.messages;
-            }
-            // Case 2: data.messages is a Single Object (Upsert/Personal) - THIS WAS THE BUG
-            else {
-                messages = [body.data.messages];
-            }
-        }
-        else if (body.data?.chats) {
-            // Case 3: chats.update (data.chats -> messages)
-            if (Array.isArray(body.data.chats.messages)) {
-                messages = body.data.chats.messages;
-            } else if (body.data.chats.messages) {
-                // Case 3b: chats.updata -> messages (Object?)
-                messages = [body.data.chats.messages];
-            }
-        }
-        else if (Array.isArray(body.data)) {
-            messages = body.data;
-        } else if (body.data) {
-            messages = [body.data];
-        }
-
-        console.log(`[Webhook] Found ${messages.length} messages to process.`);
-
-        for (const msg of messages) {
-            if (!msg) continue;
-
-            const sender = msg.key?.cleanedSenderPn || msg.key?.remoteJid?.split('@')[0];
-            let text = '';
-
-            // A. Normal Text
-            if (msg.message?.conversation) text = msg.message.conversation;
-            else if (msg.message?.extendedTextMessage?.text) text = msg.message.extendedTextMessage.text;
-            else if (msg.messageBody) text = msg.messageBody;
-
-            // B. Poll Vote
-            else if (msg.message?.pollUpdateMessage) {
-                const vote = msg.message.pollUpdateMessage.vote;
-                if (vote?.selectedOptions?.length > 0) {
-                    text = vote.selectedOptions[0].name;
-                    console.log(`[Webhook] Poll Vote: ${text}`);
+        try {
+            // Path A: Standard 'messages' (Array or Object)
+            if (data.messages) {
+                if (Array.isArray(data.messages)) {
+                    // Array of messages
+                    for (const msg of data.messages) await this.processSingleMessage(msg);
+                } else {
+                    // Single message object (The payload seen in logs)
+                    await this.processSingleMessage(data.messages);
                 }
             }
-
-            // C. Button Response 
-            else if (msg.message?.buttonsResponseMessage) {
-                text = msg.message.buttonsResponseMessage.selectedButtonId || msg.message.buttonsResponseMessage.selectedDisplayText;
-            }
-            else if (msg.message?.templateButtonReplyMessage) {
-                text = msg.message.templateButtonReplyMessage.selectedId || msg.message.templateButtonReplyMessage.selectedDisplayText;
-            }
-
-            // 3. Process
-            if (sender && text) {
-                console.log(`[Webhook] Processing from ${sender}: ${text}`);
-                try {
-                    await this.service.handleIncoming(sender, text);
-                } catch (e) {
-                    console.error('[Webhook] Error handling message:', e);
+            // Path B: 'chats.update' (data.chats -> messages[])
+            else if (data.chats) {
+                const chats = Array.isArray(data.chats) ? data.chats : [data.chats];
+                for (const chat of chats) {
+                    if (Array.isArray(chat.messages)) {
+                        for (const msg of chat.messages) await this.processSingleMessage(msg);
+                    }
                 }
-            } else {
-                console.log('[Webhook] Skipped message (No sender or text found):', JSON.stringify(msg));
             }
+        } catch (e) {
+            console.error('[Webhook] Component Error:', e);
         }
 
         return res.status(HttpStatus.OK).send('EVENT_RECEIVED');
+    }
+
+    // Helper to process a single message node
+    async processSingleMessage(msg: any) {
+        if (!msg) return;
+
+        const sender = msg.key?.cleanedSenderPn || msg.key?.remoteJid?.split('@')[0];
+        let text = '';
+
+        // Extraction Logic
+        if (msg.message?.conversation) text = msg.message.conversation;
+        else if (msg.message?.extendedTextMessage?.text) text = msg.message.extendedTextMessage.text;
+        else if (msg.messageBody) text = msg.messageBody;
+
+        // Poll Vote
+        else if (msg.message?.pollUpdateMessage) {
+            const vote = msg.message.pollUpdateMessage.vote;
+            if (vote?.selectedOptions?.length > 0) {
+                text = vote.selectedOptions[0].name;
+                console.log(`[Webhook] Poll Vote: ${text}`);
+            }
+        }
+
+        // Button Response
+        else if (msg.message?.buttonsResponseMessage) {
+            text = msg.message.buttonsResponseMessage.selectedButtonId || msg.message.buttonsResponseMessage.selectedDisplayText;
+        }
+        else if (msg.message?.templateButtonReplyMessage) {
+            text = msg.message.templateButtonReplyMessage.selectedId || msg.message.templateButtonReplyMessage.selectedDisplayText;
+        }
+
+        if (sender && text) {
+            console.log(`[Webhook] Processing from ${sender}: ${text}`);
+            // Call Service
+            await this.service.handleIncoming(sender, text);
+        } else {
+            console.log('[Webhook] Skipped (No sender/text):', JSON.stringify(msg));
+        }
     }
 
     @Get('health')
