@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM mcr.microsoft.com/playwright:v1.41.0-jammy AS builder
 
 WORKDIR /app
 
@@ -12,7 +12,7 @@ COPY . .
 RUN npx prisma generate
 RUN npm run build
 
-FROM node:20-alpine
+FROM mcr.microsoft.com/playwright:v1.41.0-jammy
 
 WORKDIR /app
 
