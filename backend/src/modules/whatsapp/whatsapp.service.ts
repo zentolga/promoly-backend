@@ -11,29 +11,33 @@ export class WhatsappService {
         const text = textRaw.toLowerCase().trim();
         console.log(`[Service] Processing message from ${phone}: ${text}`);
 
-        // 1. Greeting / Main Menu
-        if (text.includes('start') || text.includes('hallo') || text.includes('prospekt')) {
-            const welcomeText = "Was möchtest du tun?";
-            // Send Single Interactive Poll (Most reliable method)
+        // 1. Greeting / Start Flow (User adds number or scans QR)
+        // Note: Wasender might not send an event just for "adding contact", 
+        // so we assume the user sends "Start", "Merhaba", or any first message.
+        if (text.includes('start') || text.includes('hallo') || text.includes('merhaba') || text.includes('selam')) {
+            const welcomeText = "Merhaba! Promoly'ye hoş geldiniz. 🌟\n\nHaftalık güncel prospekti hemen cebinize ister misiniz?";
+
+            // "Oklu butonlar" simulation using Polls (Best UX reliability)
             await this.sendPollMessage(phone, welcomeText, [
-                "Weitere Angebote",
-                "Neue Produkte",
-                "Fragen zu Preisen"
+                "Evet, gönder 📄",
+                "Hayır, teşekkürler"
             ]);
         }
-        // 2. Button Responses
-        else if (text.includes('weitere angebote') || text === 'ja' || text === 'j') {
+
+        // 2. Handle "Yes" Response (Button Click)
+        else if (text.includes('evet') || text.includes('gönder')) {
+            await this.sendMessage(phone, 'Harika! Hemen gönderiyorum... ⏳');
             await this.handleSendCurrentFlyer(phone);
         }
-        else if (text.includes('neue produkte')) {
-            await this.sendMessage(phone, '🆕 *Neue Produkte*\n\nDiese Woche haben wir viele Neuheiten! Schau dir Seite 3 im Prospekt an.');
+
+        // 3. Handle "No" Response
+        else if (text.includes('hayır')) {
+            await this.sendMessage(phone, 'Tamamdır, ne zaman isterseniz "Start" yazabilirsiniz. İyi günler! 👋');
         }
-        else if (text.includes('fragen zu preisen')) {
-            await this.sendMessage(phone, '💰 *Fragen zu Preisen*\n\nBitte schreibe uns einfach deine Frage hier in den Chat. Ein Mitarbeiter wird sich bald melden.');
-        }
-        // 3. Unsubscribe
+
+        // 4. Fallback / Unsubscribe
         else if (text === 'stop') {
-            await this.sendMessage(phone, 'Sie haben sich erfolgreich abgemeldet.');
+            await this.sendMessage(phone, 'Abonelikten başarıyla ayrıldınız. Tekrar görüşmek üzere!');
         }
     }
 
