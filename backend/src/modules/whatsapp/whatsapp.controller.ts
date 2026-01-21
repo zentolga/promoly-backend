@@ -10,27 +10,34 @@ export class WhatsappController {
 
     @Post('webhook')
     async receive(@Body() body: any, @Res() res: Response) {
-        // Debug: Log the exact payload to identify Poll structure
         console.log('[Webhook] RAW PAYLOAD:', JSON.stringify(body));
 
-        // Wasender can send 'data.messages' as an Array or a single object in 'data'
-        const messages = Array.isArray(body.data?.messages)
-            ? body.data.messages
-            : Array.isArray(body.data) ? body.data : [body.data];
+        // Universal Message Extractor
+        let messages: any[] = [];
+
+        if (Array.isArray(body.data?.messages)) {
+            messages = body.data.messages;
+        } else if (body.data?.chats && Array.isArray(body.data.chats.messages)) {
+            // Handle 'chats.update' structure
+            messages = body.data.chats.messages;
+        } else if (Array.isArray(body.data)) {
+            messages = body.data;
+        } else if (body.data) {
+            messages = [body.data];
+        }
+
+        console.log(`[Webhook] Found ${messages.length} messages to process.`);
 
         for (const msg of messages) {
             if (!msg) continue;
 
-            // 1. Extract Sender
             const sender = msg.key?.cleanedSenderPn || msg.key?.remoteJid?.split('@')[0];
-
-            // 2. Extract Text (covering Text, Buttons, Polls)
             let text = '';
 
             // A. Normal Text
             if (msg.message?.conversation) text = msg.message.conversation;
             else if (msg.message?.extendedTextMessage?.text) text = msg.message.extendedTextMessage.text;
-            else if (msg.messageBody) text = msg.messageBody; // Fallback
+            else if (msg.messageBody) text = msg.messageBody;
 
             // B. Poll Vote
             else if (msg.message?.pollUpdateMessage) {
@@ -41,7 +48,7 @@ export class WhatsappController {
                 }
             }
 
-            // C. Button Response (if using buttons)
+            // C. Button Response 
             else if (msg.message?.buttonsResponseMessage) {
                 text = msg.message.buttonsResponseMessage.selectedButtonId || msg.message.buttonsResponseMessage.selectedDisplayText;
             }
@@ -57,6 +64,8 @@ export class WhatsappController {
                 } catch (e) {
                     console.error('[Webhook] Error handling message:', e);
                 }
+            } else {
+                console.log('[Webhook] Skipped message (No sender or text found):', JSON.stringify(msg));
             }
         }
 
