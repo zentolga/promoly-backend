@@ -1,3 +1,7 @@
+import { Controller, Get, Post, Query, Body, Res, HttpStatus } from '@nestjs/common';
+import { Response } from 'express';
+import { WhatsappService } from './whatsapp.service';
+
 @Controller('whatsapp')
 export class WhatsappController {
     private static debugLogs: any[] = [];
