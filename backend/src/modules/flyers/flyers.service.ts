@@ -156,11 +156,14 @@ export class FlyersService {
         // Calculate dynamic height based on items max Y
         let totalHeight = A4_HEIGHT;
         if (format === 'A4') {
+            const HEADER_OFFSET = 160; // Space for header
             const maxY = Math.max(...campaign.items.map(i => (i.posY + i.height) * ROW_HEIGHT), 0);
-            const contentHeight = maxY + 200; // Buffer for header/footer
-            // Round up to nearest page
-            const pages = Math.ceil(Math.max(contentHeight, A4_HEIGHT) / A4_HEIGHT);
-            totalHeight = pages * A4_HEIGHT;
+            const contentHeight = HEADER_OFFSET + maxY + 40; // Header + content + small footer buffer
+            // Only add pages if content truly exceeds single A4 page
+            if (contentHeight > A4_HEIGHT) {
+                const pages = Math.ceil(contentHeight / A4_HEIGHT);
+                totalHeight = pages * A4_HEIGHT;
+            }
         } else {
             width = 1080;
             totalHeight = format === 'post' ? 1350 : 1920;
@@ -268,7 +271,7 @@ export class FlyersService {
   /* Grid Items */
   .product-card { background: #fff; border-radius: 8px; padding: 8px; display: flex; flex-direction: column; box-shadow: 0 4px 10px rgba(0,0,0,0.2); overflow: hidden; }
   
-  .slogan { position: absolute; top: 15%; left: -10%; color: ${theme.accent}; font-size: 24px; font-weight: 900; transform: rotate(-15deg); z-index: 20; text-shadow: 1px 1px 0 #fff; opacity: 0.95; }
+  .slogan { position: absolute; top: 15%; left: 5%; color: ${theme.accent}; font-size: 20px; font-weight: 900; transform: rotate(-15deg); z-index: 20; text-shadow: 1px 1px 0 #fff; opacity: 0.95; white-space: nowrap; }
   
   .badge { position: absolute; top: -5px; right: -5px; background: ${theme.badge}; color: #000; font-weight: 900; padding: 10px; font-size: 14px; z-index: 15; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
   .badge.circle { border-radius: 50%; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; }
