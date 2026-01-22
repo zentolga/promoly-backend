@@ -70,48 +70,52 @@ export class FlyersService {
 
     // Helper to find the browser executable in Docker environments
     private resolveBrowserPath(): string | undefined {
-        // 1. Trust the Environment Variable first (set in Dockerfile)
-        if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
-            if (fs.existsSync(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH)) {
-                console.log(`[FlyersService] Using ENV defined browser: ${process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}`);
-                return process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
-            } else {
-                console.warn(`[FlyersService] ENV defined browser not found at: ${process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}`);
-            }
-        }
-
-        // 2. Check Standard System Paths (Debian/Ubuntu/Alpine)
-        const commonPaths = [
+        const candidates = [
+            process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
             '/usr/bin/chromium',
             '/usr/bin/chromium-browser',
             '/usr/bin/google-chrome-stable',
-            '/usr/bin/google-chrome'
+            '/usr/bin/google-chrome',
+            '/usr/lib/chromium/chromium'
         ];
 
-        for (const p of commonPaths) {
-            if (fs.existsSync(p)) {
-                console.log(`[FlyersService] Found system browser at: ${p}`);
+        for (const p of candidates) {
+            if (p && fs.existsSync(p)) {
+                console.log(`[FlyersService] Using Chromium executable at: ${p}`);
                 return p;
             }
         }
 
-        console.log('[FlyersService] No system browser found. Defaulting to Playwright auto-detect (may fail in Docker).');
+        console.warn('[FlyersService] No system Chromium found in candidate paths. Defaulting to Playwright auto-detect.');
         return undefined;
     }
 
     private async renderToPdf(html: string, campaignId: string) {
-        const executablePath = this.resolveBrowserPath();
-        console.log(`Launching Browser with path: ${executablePath || 'Auto-detect'}`);
+        const browserPath = this.resolveBrowserPath();
+        console.log(`[FlyersService] Launching Browser with path: ${browserPath || 'Auto-detect'}`);
 
         const browser = await chromium.launch({
-            executablePath,
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
+            executablePath: browserPath,
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-gpu'
+            ],
+            headless: true
         });
-        const page = await browser.newPage();
-        await page.setContent(html, { waitUntil: 'networkidle' });
-        const pdfBuffer = await page.pdf({ width: '794px', height: '1123px', printBackground: true });
-        await browser.close();
-        return this.saveFile(pdfBuffer, campaignId, 'flyers', 'pdf');
+
+        try {
+            const page = await browser.newPage();
+            // Rest of the function...
+            await page.setContent(html, { waitUntil: 'networkidle' });
+            const pdfBuffer = await page.pdf({ width: '794px', height: '1123px', printBackground: true });
+            await browser.close();
+            return this.saveFile(pdfBuffer, campaignId, 'flyers', 'pdf');
+        } catch (error) {
+            await browser.close();
+            throw error;
+        }
     }
 
     private async renderToPng(html: string, campaignId: string, width: number, height: number, suffix: string) {
