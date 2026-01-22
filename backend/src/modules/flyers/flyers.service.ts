@@ -84,20 +84,26 @@ export class FlyersService {
             }
         }
 
-        // RECURSIVE CHECK for Custom Path
-        const customDir = '/app/pw-browsers';
-        if (fs.existsSync(customDir)) {
-            try {
-                // Find subdirectories like chromium-1097 or similar
-                const subdirs = fs.readdirSync(customDir);
-                for (const sub of subdirs) {
-                    const candidate = path.join(customDir, sub, 'chrome-linux', 'chrome');
-                    if (fs.existsSync(candidate)) {
-                        console.log(`[FlyersService] Found browser in custom dir: ${candidate}`);
-                        return candidate;
+        // RECURSIVE CHECK for Playwright Image Default Path
+        // The mcr.microsoft.com/playwright image installs to /ms-playwright usually
+        const customDirs = ['/ms-playwright', '/root/.cache/ms-playwright'];
+
+        for (const customDir of customDirs) {
+            if (fs.existsSync(customDir)) {
+                try {
+                    const subdirs = fs.readdirSync(customDir);
+                    for (const sub of subdirs) {
+                        // Check for standard chromium folder pattern
+                        if (sub.includes('chromium')) {
+                            const candidate = path.join(customDir, sub, 'chrome-linux', 'chrome');
+                            if (fs.existsSync(candidate)) {
+                                console.log(`[FlyersService] Found browser in ${customDir}: ${candidate}`);
+                                return candidate;
+                            }
+                        }
                     }
-                }
-            } catch (e) { console.error('Error scanning custom dir', e); }
+                } catch (e) { console.error(`Error scanning ${customDir}`, e); }
+            }
         }
 
         console.log('[FlyersService] No browser found in known paths. Defaulting to auto-detect.');
