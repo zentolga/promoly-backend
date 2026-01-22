@@ -84,25 +84,31 @@ export class FlyersService {
             }
         }
 
-        // RECURSIVE CHECK for Playwright Image Default Path
-        // The mcr.microsoft.com/playwright image installs to /ms-playwright usually
-        const customDirs = ['/ms-playwright', '/root/.cache/ms-playwright'];
-
-        for (const customDir of customDirs) {
-            if (fs.existsSync(customDir)) {
+        // AGGRESSIVE DEBUG SCAN
+        const scanDirs = ['/ms-playwright', '/root/.cache/ms-playwright', '/var/lib/apt/lists'];
+        for (const d of scanDirs) {
+            if (fs.existsSync(d)) {
                 try {
-                    const subdirs = fs.readdirSync(customDir);
-                    for (const sub of subdirs) {
-                        // Check for standard chromium folder pattern
-                        if (sub.includes('chromium')) {
-                            const candidate = path.join(customDir, sub, 'chrome-linux', 'chrome');
-                            if (fs.existsSync(candidate)) {
-                                console.log(`[FlyersService] Found browser in ${customDir}: ${candidate}`);
-                                return candidate;
-                            }
+                    const contents = fs.readdirSync(d);
+                    console.log(`[FlyersService] Contents of ${d}:`, contents);
+                    // Check subfolders
+                    for (const sub of contents) {
+                        const subPath = path.join(d, sub);
+                        if (fs.statSync(subPath).isDirectory()) {
+                            try {
+                                const subContents = fs.readdirSync(subPath);
+                                console.log(`[FlyersService]   Subfolder ${sub}:`, subContents);
+                                // HACK: IF we see 'chrome-linux', that's it!
+                                if (subContents.includes('chrome-linux')) {
+                                    const exec = path.join(subPath, 'chrome-linux', 'chrome');
+                                    if (fs.existsSync(exec)) return exec;
+                                }
+                            } catch (e) { }
                         }
                     }
-                } catch (e) { console.error(`Error scanning ${customDir}`, e); }
+                } catch (e) { console.error(`Error scanning ${d}`, e); }
+            } else {
+                console.log(`[FlyersService] Directory not found: ${d}`);
             }
         }
 
