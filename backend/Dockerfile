@@ -1,5 +1,5 @@
 # --- Stage 1: Builder ---
-FROM node:20-slim AS builder
+FROM node:20 AS builder
 
 WORKDIR /app
 
@@ -17,12 +17,13 @@ RUN npx prisma generate
 RUN npm run build
 
 # --- Stage 2: Final Image ---
-FROM node:20-slim
+FROM node:20
 
 WORKDIR /app
 
-# Install system dependencies required for Chromium execution
+# Install Chromium (System Level) and dependencies
 RUN apt-get update && apt-get install -y \
+    chromium \
     libnss3 \
     libfreetype6 \
     libfreetype6-dev \
@@ -31,8 +32,9 @@ RUN apt-get update && apt-get install -y \
     fonts-freefont-ttf \
     && rm -rf /var/lib/apt/lists/*
 
-# Set ENV to tell Playwright where to look
-ENV PLAYWRIGHT_BROWSERS_PATH=/app/pw-browsers
+# Force Playwright to use System Chromium
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
 
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package*.json ./
@@ -40,11 +42,8 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/storage ./storage
 
-# Explicitly install chromium in the FINAL stage
-RUN npx playwright install chromium
-
-# VERIFICATION: List installed browsers to logs
-RUN ls -R /app/pw-browsers || echo "Directory not found during build"
+# Verification
+RUN chromium --version
 
 EXPOSE 3100
 CMD ["npm", "run", "start:prod"]

@@ -70,48 +70,33 @@ export class FlyersService {
 
     // Helper to find the browser executable in Docker environments
     private resolveBrowserPath(): string | undefined {
-        const pathsToCheck = [
-            process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
+        // 1. Trust the Environment Variable first (set in Dockerfile)
+        if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
+            if (fs.existsSync(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH)) {
+                console.log(`[FlyersService] Using ENV defined browser: ${process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}`);
+                return process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+            } else {
+                console.warn(`[FlyersService] ENV defined browser not found at: ${process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}`);
+            }
+        }
+
+        // 2. Check Standard System Paths (Debian/Ubuntu/Alpine)
+        const commonPaths = [
             '/usr/bin/chromium',
             '/usr/bin/chromium-browser',
-            '/usr/bin/google-chrome',
+            '/usr/bin/google-chrome-stable',
+            '/usr/bin/google-chrome'
         ];
 
-        for (const p of pathsToCheck) {
-            if (p && fs.existsSync(p)) {
-                console.log(`[FlyersService] Found browser at: ${p}`);
+        for (const p of commonPaths) {
+            if (fs.existsSync(p)) {
+                console.log(`[FlyersService] Found system browser at: ${p}`);
                 return p;
             }
         }
 
-        // CUSTOM PATH for Dockerfile "npx install" location
-        const customDir = '/app/pw-browsers';
-        if (fs.existsSync(customDir)) {
-            try {
-                const contents = fs.readdirSync(customDir);
-                console.log(`[FlyersService] Contents of ${customDir}:`, contents);
-                for (const sub of contents) {
-                    const subPath = path.join(customDir, sub);
-                    if (fs.statSync(subPath).isDirectory()) {
-                        // Check for chrome inside subfolder (e.g. chromium-1091/chrome-linux/chrome)
-                        try {
-                            const subContents = fs.readdirSync(subPath);
-                            console.log(`[FlyersService]   Subfolder ${sub}:`, subContents);
-
-                            // Standard Playwright structure: chromium-XXXX/chrome-linux/chrome
-                            const candidate = path.join(subPath, 'chrome-linux', 'chrome');
-                            if (fs.existsSync(candidate)) {
-                                console.log(`[FlyersService] Found browser in ${customDir}: ${candidate}`);
-                                return candidate;
-                            }
-                        } catch (e) { }
-                    }
-                }
-            } catch (e) { console.error(`Error scanning ${customDir}`, e); }
-        }
-
-        console.log('[FlyersService] No browser found in known paths. Defaulting to auto-detect.');
-        return undefined; // Let Playwright try its default
+        console.log('[FlyersService] No system browser found. Defaulting to Playwright auto-detect (may fail in Docker).');
+        return undefined;
     }
 
     private async renderToPdf(html: string, campaignId: string) {
