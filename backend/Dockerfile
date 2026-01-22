@@ -1,9 +1,11 @@
 # --- Stage 1: Builder ---
-FROM mcr.microsoft.com/playwright:v1.41.0-jammy AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
-# Install app dependencies
+# Install build dependencies
+RUN apt-get update -y && apt-get install -y openssl
+
 COPY package*.json ./
 COPY prisma ./prisma/
 
@@ -15,16 +17,34 @@ RUN npx prisma generate
 RUN npm run build
 
 # --- Stage 2: Final Image ---
-FROM mcr.microsoft.com/playwright:v1.41.0-jammy
+FROM node:20-slim
 
 WORKDIR /app
+
+# Install system dependencies required for Chromium execution
+RUN apt-get update && apt-get install -y \
+    libnss3 \
+    libfreetype6 \
+    libfreetype6-dev \
+    libharfbuzz-dev \
+    ca-certificates \
+    fonts-freefont-ttf \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set ENV to tell Playwright where to look
+ENV PLAYWRIGHT_BROWSERS_PATH=/app/pw-browsers
 
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
-# Critical: Copy storage for images
 COPY --from=builder /app/storage ./storage
+
+# Explicitly install chromium in the FINAL stage
+RUN npx playwright install chromium
+
+# VERIFICATION: List installed browsers to logs
+RUN ls -R /app/pw-browsers || echo "Directory not found during build"
 
 EXPOSE 3100
 CMD ["npm", "run", "start:prod"]

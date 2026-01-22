@@ -84,32 +84,30 @@ export class FlyersService {
             }
         }
 
-        // AGGRESSIVE DEBUG SCAN
-        const scanDirs = ['/ms-playwright', '/root/.cache/ms-playwright', '/var/lib/apt/lists'];
-        for (const d of scanDirs) {
-            if (fs.existsSync(d)) {
-                try {
-                    const contents = fs.readdirSync(d);
-                    console.log(`[FlyersService] Contents of ${d}:`, contents);
-                    // Check subfolders
-                    for (const sub of contents) {
-                        const subPath = path.join(d, sub);
-                        if (fs.statSync(subPath).isDirectory()) {
-                            try {
-                                const subContents = fs.readdirSync(subPath);
-                                console.log(`[FlyersService]   Subfolder ${sub}:`, subContents);
-                                // HACK: IF we see 'chrome-linux', that's it!
-                                if (subContents.includes('chrome-linux')) {
-                                    const exec = path.join(subPath, 'chrome-linux', 'chrome');
-                                    if (fs.existsSync(exec)) return exec;
-                                }
-                            } catch (e) { }
-                        }
+        // CUSTOM PATH for Dockerfile "npx install" location
+        const customDir = '/app/pw-browsers';
+        if (fs.existsSync(customDir)) {
+            try {
+                const contents = fs.readdirSync(customDir);
+                console.log(`[FlyersService] Contents of ${customDir}:`, contents);
+                for (const sub of contents) {
+                    const subPath = path.join(customDir, sub);
+                    if (fs.statSync(subPath).isDirectory()) {
+                        // Check for chrome inside subfolder (e.g. chromium-1091/chrome-linux/chrome)
+                        try {
+                            const subContents = fs.readdirSync(subPath);
+                            console.log(`[FlyersService]   Subfolder ${sub}:`, subContents);
+
+                            // Standard Playwright structure: chromium-XXXX/chrome-linux/chrome
+                            const candidate = path.join(subPath, 'chrome-linux', 'chrome');
+                            if (fs.existsSync(candidate)) {
+                                console.log(`[FlyersService] Found browser in ${customDir}: ${candidate}`);
+                                return candidate;
+                            }
+                        } catch (e) { }
                     }
-                } catch (e) { console.error(`Error scanning ${d}`, e); }
-            } else {
-                console.log(`[FlyersService] Directory not found: ${d}`);
-            }
+                }
+            } catch (e) { console.error(`Error scanning ${customDir}`, e); }
         }
 
         console.log('[FlyersService] No browser found in known paths. Defaulting to auto-detect.');
