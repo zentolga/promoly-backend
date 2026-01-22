@@ -171,7 +171,7 @@ export class FlyersService {
             // --- RENDER LOGO ---
             if (item.type === 'logo') {
                 return `<div style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;display:flex;align-items:center;justify-content:center;z-index:${item.zIndex || 10};">
-                    ${store.logoPath ? `<img src="http://localhost:3100/files/${store.logoPath}" style="max-width:100%;max-height:100%;object-fit:contain;" />` : `<div style="font-size:24px;font-weight:bold;">${store.storeName}</div>`}
+                    ${store.logoPath ? `<img src="https://promoly-backend.onrender.com/files/${store.logoPath}" style="max-width:100%;max-height:100%;object-fit:contain;" />` : `<div style="font-size:24px;font-weight:bold;">${store.storeName}</div>`}
                 </div>`;
             }
 
@@ -185,7 +185,7 @@ export class FlyersService {
             // --- RENDER STICKER ---
             if (item.type === 'sticker') {
                 return `<div style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;display:flex;align-items:center;justify-content:center;z-index:${item.zIndex || 20};transform:rotate(${item.rotation || 0}deg);">
-                    ${item.imagePath ? `<img src="http://localhost:3100/files/${item.imagePath}" style="max-width:100%;max-height:100%;object-fit:contain;" />` : '⭐'}
+                    ${item.imagePath ? `<img src="https://promoly-backend.onrender.com/files/${item.imagePath}" style="max-width:100%;max-height:100%;object-fit:contain;" />` : '⭐'}
                 </div>`;
             }
 
@@ -235,7 +235,7 @@ export class FlyersService {
 <html><head><meta charset="UTF-8">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { width: ${width}px; height: ${totalHeight}px; font-family: 'Inter', sans-serif; background: ${campaign.backgroundImage ? `url(http://localhost:3100/files/${campaign.backgroundImage}) center/cover no-repeat` : theme.bg}; color: ${theme.text}; position: relative; overflow: hidden; }
+  body { width: ${width}px; height: ${totalHeight}px; font-family: 'Inter', sans-serif; background: ${campaign.backgroundImage ? `url(https://promoly-backend.onrender.com/files/${campaign.backgroundImage}) center/cover no-repeat` : theme.bg}; color: ${theme.text}; position: relative; overflow: hidden; }
   
   /* Header */
   .header { position: absolute; top: 0; left: 0; width: 100%; height: 160px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
@@ -283,35 +283,7 @@ export class FlyersService {
 </body></html>`;
     }
 
-    private async renderToPdf(html: string, campaignId: string) {
-        const executablePath = this.resolveBrowserPath();
-        console.log(`Launching Browser with path: ${executablePath || 'Auto-detect'}`);
 
-        const browser = await chromium.launch({
-            executablePath,
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
-        });
-        const page = await browser.newPage();
-        await page.setContent(html, { waitUntil: 'networkidle' });
-        const pdfBuffer = await page.pdf({ width: '794px', height: '1123px', printBackground: true });
-        await browser.close();
-        return this.saveFile(pdfBuffer, campaignId, 'flyers', 'pdf');
-    }
-
-    private async renderToPng(html: string, campaignId: string, width: number, height: number, suffix: string) {
-        const executablePath = this.resolveBrowserPath();
-        console.log(`Launching Browser with path: ${executablePath || 'Auto-detect'}`);
-
-        const browser = await chromium.launch({
-            executablePath,
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
-        });
-        const page = await browser.newPage({ viewport: { width, height } });
-        await page.setContent(html, { waitUntil: 'networkidle' });
-        const pngBuffer = await page.screenshot({ type: 'png', fullPage: false });
-        await browser.close();
-        return this.saveFile(pngBuffer, campaignId, 'flyers', `${suffix}.png`);
-    }
 
     private async saveFile(buffer: Buffer, campaignId: string, folder: string, ext: string) {
         const storageDir = process.env.STORAGE_DIR || path.join(__dirname, '..', '..', '..', '..', 'storage');
