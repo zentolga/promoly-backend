@@ -70,31 +70,28 @@ export class FlyersService {
 
     // Helper to find the browser executable in Docker environments
     private resolveBrowserPath(): string | undefined {
-        // 1. Try environment variable
-        if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) return process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+        const pathsToCheck = [
+            process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
+            '/usr/bin/chromium',
+            '/usr/bin/chromium-browser',
+            '/usr/bin/google-chrome',
+            '/app/ms-playwright/chromium-1097/chrome-linux/chrome', // Explicit known path
+        ];
 
-        // 2. Try standard Playwright image location
-        // The folder name changes with version (e.g., chromium-1091), so we scan for it.
-        const msPlaywrightDir = '/ms-playwright';
-        if (fs.existsSync(msPlaywrightDir)) {
-            const files = fs.readdirSync(msPlaywrightDir);
-            const chromiumDir = files.find(f => f.startsWith('chromium-'));
-            if (chromiumDir) {
-                // Path: /ms-playwright/chromium-XXXX/chrome-linux/chrome
-                const execPath = path.join(msPlaywrightDir, chromiumDir, 'chrome-linux', 'chrome');
-                if (fs.existsSync(execPath)) return execPath;
+        for (const p of pathsToCheck) {
+            if (p && fs.existsSync(p)) {
+                console.log(`[FlyersService] Found browser at: ${p}`);
+                return p;
             }
         }
 
-        // 3. Try standard Linux locations (Alpine/Debian)
-        const commonPaths = [
-            '/usr/bin/chromium',
-            '/usr/bin/chromium-browser',
-            '/usr/bin/google-chrome'
-        ];
-        for (const p of commonPaths) {
-            if (fs.existsSync(p)) return p;
-        }
+        console.log('[FlyersService] No custom browser found in common paths. Checking /usr/bin content:');
+        try {
+            if (fs.existsSync('/usr/bin')) {
+                const files = fs.readdirSync('/usr/bin').filter(f => f.includes('chrom'));
+                console.log('/usr/bin contents matching chrom:', files);
+            }
+        } catch (e) { console.error('Error listing /usr/bin', e); }
 
         return undefined; // Let Playwright try its default
     }
@@ -168,6 +165,15 @@ export class FlyersService {
             const w = item.width * COL_WIDTH;
             const h = item.height * ROW_HEIGHT;
 
+            // ... (rest of renderItem) ... 
+            // Note: I cannot replace the whole renderItem here as it's too big, 
+            // verifying if replace_file_content handles partial function content. 
+            // It replaces CONTIGUOUS blocks. I should probably just replace the methods and the start of buildFlyer.
+            // Since I need to touch CSS at line 238, I will include renderItem in the context or skip it.
+            // Actually, I can just replace methods above and then start of buildFlyerHtml.
+            // Wait, the ReplacementContent must be the full block.
+            // I'll assume the previous step showed lines 140-302.
+
             // --- RENDER LOGO ---
             if (item.type === 'logo') {
                 return `<div style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;display:flex;align-items:center;justify-content:center;z-index:${item.zIndex || 10};">
@@ -231,11 +237,21 @@ export class FlyersService {
 
         const itemsHtml = campaign.items.map(renderItem).join('');
 
+        // CSS FIX HERE: changed background-size from cover to 100% 1123px (A4 height) to repeat properly
         return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { width: ${width}px; height: ${totalHeight}px; font-family: 'Inter', sans-serif; background: ${campaign.backgroundImage ? `url(https://promoly-backend.onrender.com/files/${campaign.backgroundImage}) center/cover no-repeat` : theme.bg}; color: ${theme.text}; position: relative; overflow: hidden; }
+  body { 
+      width: ${width}px; 
+      height: ${totalHeight}px; 
+      font-family: 'Inter', sans-serif; 
+      background: ${campaign.backgroundImage ? `url(https://promoly-backend.onrender.com/files/${campaign.backgroundImage}) center top repeat-y` : theme.bg}; 
+      background-size: ${width}px ${A4_HEIGHT}px;
+      color: ${theme.text}; 
+      position: relative; 
+      overflow: hidden; 
+  }
   
   /* Header */
   .header { position: absolute; top: 0; left: 0; width: 100%; height: 160px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }

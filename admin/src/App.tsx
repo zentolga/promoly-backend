@@ -3,10 +3,8 @@ import { BrowserRouter, Routes, Route, Navigate, Link, useLocation, useParams } 
 import GridLayout from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
-import { api } from './api';
-import Whatsapp from './pages/Whatsapp'; // Import Helper
-
-const API_BASE = 'http://localhost:3100';
+import { api, API_BASE } from './api';
+import Whatsapp from './pages/Whatsapp';
 
 // Themes based on real German supermarket flyer designs
 // Themes based on real German supermarket flyer designs
