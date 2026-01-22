@@ -220,7 +220,7 @@ export class FlyersService {
                 ${item.labelText ? `<div class="label">${item.labelText}</div>` : ''}
                 
                 <div class="product-image">
-                    ${item.product.imagePath ? `<img src="${item.product.imagePath}" />` : '📦'}
+                    ${item.product.imagePath ? `<img src="https://promoly-backend.onrender.com/files/products/${item.product.imagePath}" />` : '📦'}
                 </div>
                 
                 <div class="info-block">

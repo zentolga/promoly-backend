@@ -4,57 +4,75 @@ import { API_BASE } from '../api';
 
 const Whatsapp: React.FC = () => {
     const [status, setStatus] = useState<any>(null);
+    const [campaigns, setCampaigns] = useState<any[]>([]);
+    const [selectedCampaignId, setSelectedCampaignId] = useState<string>('');
     const [loading, setLoading] = useState(false);
     const [sending, setSending] = useState(false);
+    const [generating, setGenerating] = useState(false);
     const [result, setResult] = useState<string | null>(null);
 
-    // Fetch Health / Status
+    // Fetch Health / Status & Campaigns
     useEffect(() => {
+        // Status
         fetch(`${API_BASE}/whatsapp/health`)
             .then(res => res.json())
             .then(data => setStatus(data))
             .catch(err => console.error('Error fetching WA status:', err));
+
+        // Campaigns
+        fetch(`${API_BASE}/campaigns`)
+            .then(res => res.json())
+            .then(data => {
+                if (Array.isArray(data)) {
+                    setCampaigns(data);
+                    // Select first published or created one by default
+                    const def = data.find((c: any) => c.status === 'PUBLISHED') || data[0];
+                    if (def) setSelectedCampaignId(def.id);
+                }
+            })
+            .catch(err => console.error('Error fetching campaigns:', err));
     }, []);
 
+    const handleGeneratePdf = async () => {
+        if (!selectedCampaignId) return;
+        setGenerating(true);
+        setResult('Generiere PDF... Bitte warten (kann bis zu 30s dauern)...');
+        try {
+            const res = await fetch(`${API_BASE}/flyers/${selectedCampaignId}/generate-pdf`, { method: 'POST' });
+            if (res.ok) {
+                setResult('✅ PDF erfolgreich neu generiert!');
+            } else {
+                setResult('❌ Fehler beim Generieren des PDFs.');
+            }
+        } catch (e) {
+            console.error(e);
+            setResult('❌ Netzwerkfehler beim PDF-Generieren.');
+        }
+        setGenerating(false);
+    };
+
     const handleSendCampaign = async () => {
-        if (!confirm('Möchten Sie den aktuellen Prospekt an alle angemeldeten Kunden senden?')) return;
+        if (!selectedCampaignId) return alert('Bitte zuerst eine Kampagne auswählen.');
+        if (!confirm('Möchten Sie diesen Prospekt wirklich an alle Kunden senden?')) return;
 
         setSending(true);
         setResult(null);
 
-        // Fetch active campaign first or let backend handle it
-        // We need a campaign ID. For now, let's fetch the Published one.
-        // Simplified: The backend send-campaign endpoint usually takes an ID. 
-        // We'll fetch campaigns first to get the active one ID. 
-        // Or simpler: We just hardcode a known test flow, but proper way is to pick one.
-        // Let's assume we send the "Current Active" one.
-
         try {
-            // Get Campaigns
-            const cRes = await fetch(`${API_BASE}/campaigns`);
-            const campaigns = await cRes.json();
-            const active = campaigns.find((c: any) => c.status === 'PUBLISHED');
-
-            if (!active) {
-                alert('Keine aktive Kampagne gefunden!');
-                setSending(false);
-                return;
-            }
-
             const res = await fetch(`${API_BASE}/whatsapp/send-campaign`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ campaignId: active.id, mode: 'digest' })
+                body: JSON.stringify({ campaignId: selectedCampaignId, mode: 'digest' })
             });
             const data = await res.json();
             if (data.success) {
-                setResult(`Erfolg! Nachricht an ${data.recipients} Empfänger gesendet.`);
+                setResult(`✅ Erfolg! Nachricht an ${data.recipients} Empfänger gesendet.`);
             } else {
-                setResult('Fehler beim Senden.');
+                setResult('❌ Fehler beim Senden.');
             }
         } catch (e) {
             console.error(e);
-            setResult('Ein Fehler ist aufgetreten.');
+            setResult('❌ Ein Fehler ist aufgetreten.');
         }
         setSending(false);
     };
@@ -85,60 +103,87 @@ const Whatsapp: React.FC = () => {
 
                 {/* Actions Card */}
                 <div style={{ background: '#fff', padding: 20, borderRadius: 8, boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
-                    <h3>Aktionen</h3>
-                    <p style={{ fontSize: 13, color: '#666', marginBottom: 20 }}>Senden Sie den aktuellen Prospekt an alle Benutzer, die sich mit "Start" angemeldet haben.</p>
+                    <h3>Newsletter Senden</h3>
+                    <p style={{ fontSize: 13, color: '#666', marginBottom: 20 }}>Wählen Sie eine Kampagne und senden Sie sie an Ihre Abonnenten.</p>
 
-                    <button
-                        onClick={handleSendCampaign}
-                        disabled={sending}
-                        style={{
-                            background: sending ? '#ccc' : '#25D366',
-                            color: '#fff',
-                            border: 'none',
-                            padding: '12px 24px',
-                            borderRadius: 6,
-                            fontWeight: 'bold',
-                            cursor: sending ? 'not-allowed' : 'pointer',
-                            display: 'flex', alignItems: 'center', gap: 10
-                        }}>
-                        {sending ? 'Sende...' : '📢 Newsletter Senden'}
-                    </button>
+                    <div style={{ marginBottom: 20 }}>
+                        <label style={{ display: 'block', fontSize: 12, fontWeight: 'bold', marginBottom: 5 }}>Kampagne wählen:</label>
+                        <select
+                            value={selectedCampaignId}
+                            onChange={(e) => setSelectedCampaignId(e.target.value)}
+                            style={{ width: '100%', padding: 10, borderRadius: 4, border: '1px solid #ddd' }}
+                        >
+                            {campaigns.map(c => (
+                                <option key={c.id} value={c.id}>
+                                    {c.year} KW{c.week} - {c.title_de} ({c.status})
+                                </option>
+                            ))}
+                        </select>
+                    </div>
 
-                    {result && <div style={{ marginTop: 15, color: result.includes('Erfolg') ? 'green' : 'red', fontWeight: 'bold' }}>{result}</div>}
+                    <div style={{ display: 'flex', gap: 10 }}>
+                        <button
+                            onClick={handleGeneratePdf}
+                            disabled={generating || sending || !selectedCampaignId}
+                            style={{
+                                background: '#2196F3',
+                                color: '#fff',
+                                border: 'none',
+                                padding: '10px 15px',
+                                borderRadius: 6,
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                opacity: (generating || !selectedCampaignId) ? 0.7 : 1
+                            }}>
+                            {generating ? 'Generiere...' : '🔄 PDF Prüfen / Neu Bauen'}
+                        </button>
+
+                        <button
+                            onClick={handleSendCampaign}
+                            disabled={sending || generating || !selectedCampaignId}
+                            style={{
+                                background: sending ? '#ccc' : '#25D366',
+                                color: '#fff',
+                                border: 'none',
+                                padding: '10px 15px',
+                                borderRadius: 6,
+                                fontWeight: 'bold',
+                                cursor: sending ? 'not-allowed' : 'pointer',
+                                flex: 1
+                            }}>
+                            {sending ? 'Sende...' : '📢 Senden'}
+                        </button>
+                    </div>
+
+                    {result && <div style={{ marginTop: 15, padding: 10, borderRadius: 4, background: '#f5f5f5', borderLeft: result.includes('Fehler') ? '4px solid red' : '4px solid green', fontWeight: 'bold' }}>{result}</div>}
                 </div>
             </div>
 
             {/* Test Section */}
             <div style={{ marginTop: 40, padding: 20, border: '1px dashed #ccc', borderRadius: 8 }}>
-                <h3>🧪 Test-Bereich</h3>
-                <p style={{ fontSize: 13, color: '#666' }}>Testen Sie die Verbindung mit Ihrer eigenen Nummer.</p>
+                <h3>🧪 Test-Bereich (Einzelnummer)</h3>
                 <div style={{ display: 'flex', gap: 10, marginTop: 15 }}>
-                    <input type="text" placeholder="Ihre Nummer (+49...)" id="testPhone" style={{ padding: 10, borderRadius: 4, border: '1px solid #ddd', width: 200 }} defaultValue="4917661009362" />
+                    <input type="text" placeholder="Ihre Nummer (+49...)" id="testPhone" style={{ padding: 10, borderRadius: 4, border: '1px solid #ddd', width: 200 }} defaultValue="49176" />
                     <button onClick={async () => {
                         const phoneInput = document.getElementById('testPhone') as HTMLInputElement;
                         const phone = phoneInput.value;
                         if (!phone) return alert('Bitte Nummer eingeben');
 
                         try {
+                            // We use the opt-in endpoint as a simple "ping" or we can implement a specific test message
                             const res = await fetch(`${API_BASE}/whatsapp/request-optin`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ phone })
                             });
                             const data = await res.json();
-                            console.log('Test result:', data);
-
-                            if (data.success) {
-                                alert('✅ Nachricht erfolgreich gesendet! Bitte WhatsApp prüfen.');
-                            } else {
-                                alert(`❌ Fehler: ${data.message || 'Unbekannter Fehler'}`);
-                            }
+                            if (data.success) alert('✅ Nachricht gesendet!');
+                            else alert(`❌ Fehler: ${data.message}`);
                         } catch (e) {
-                            console.error(e);
-                            alert('❌ Netzwerk- oder Serverfehler beim Senden.');
+                            alert('❌ Netzwerkfehler');
                         }
                     }} style={{ background: '#333', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 4, cursor: 'pointer' }}>
-                        Test-Nachricht senden
+                        Ping Senden
                     </button>
                 </div>
             </div>
