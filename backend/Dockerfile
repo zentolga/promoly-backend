@@ -21,8 +21,8 @@ FROM mcr.microsoft.com/playwright:v1.41.0-jammy
 
 WORKDIR /app
 
-# Ensure Playwright looks in the correct system location
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+# defined BEFORE install so it goes to the right place
+ENV PLAYWRIGHT_BROWSERS_PATH=/app/ms-playwright
 
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package*.json ./
@@ -31,8 +31,7 @@ COPY --from=builder /app/prisma ./prisma
 # Copy storage folder for static assets
 COPY --from=builder /app/storage ./storage
 
-# Explicitly install chromium again in the final stage to be safe, or rely on base image + ENV
-# Since base image has it, just setting ENV might be enough, but 'install' is safer to ensure version match
+# Explicitly install chromium to the CUSTOM path defined by ENV above
 RUN npx playwright install chromium
 
 EXPOSE 3100
