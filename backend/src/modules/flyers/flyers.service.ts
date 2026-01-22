@@ -75,7 +75,6 @@ export class FlyersService {
             '/usr/bin/chromium',
             '/usr/bin/chromium-browser',
             '/usr/bin/google-chrome',
-            '/app/ms-playwright/chromium-1097/chrome-linux/chrome', // Explicit known path
         ];
 
         for (const p of pathsToCheck) {
@@ -85,14 +84,23 @@ export class FlyersService {
             }
         }
 
-        console.log('[FlyersService] No custom browser found in common paths. Checking /usr/bin content:');
-        try {
-            if (fs.existsSync('/usr/bin')) {
-                const files = fs.readdirSync('/usr/bin').filter(f => f.includes('chrom'));
-                console.log('/usr/bin contents matching chrom:', files);
-            }
-        } catch (e) { console.error('Error listing /usr/bin', e); }
+        // RECURSIVE CHECK for Custom Path
+        const customDir = '/app/pw-browsers';
+        if (fs.existsSync(customDir)) {
+            try {
+                // Find subdirectories like chromium-1097 or similar
+                const subdirs = fs.readdirSync(customDir);
+                for (const sub of subdirs) {
+                    const candidate = path.join(customDir, sub, 'chrome-linux', 'chrome');
+                    if (fs.existsSync(candidate)) {
+                        console.log(`[FlyersService] Found browser in custom dir: ${candidate}`);
+                        return candidate;
+                    }
+                }
+            } catch (e) { console.error('Error scanning custom dir', e); }
+        }
 
+        console.log('[FlyersService] No browser found in known paths. Defaulting to auto-detect.');
         return undefined; // Let Playwright try its default
     }
 
