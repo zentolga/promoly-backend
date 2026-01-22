@@ -1,15 +1,15 @@
-FROM mcr.microsoft.com/playwright:v1.41.0-jammy AS builder
+# --- Stage 1: Builder ---
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
-# Install app dependencies
+# Install build dependencies (openssl is needed for prisma)
+RUN apt-get update -y && apt-get install -y openssl
+
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Pin Playwright version to match the base image (optional but good practice)
 RUN npm install
-# Explicitly install the browser version matching the package.json lock
-RUN npx playwright install chromium
 
 COPY . .
 
@@ -17,22 +17,34 @@ RUN npx prisma generate
 RUN npm run build
 
 # --- Stage 2: Final Image ---
-FROM mcr.microsoft.com/playwright:v1.41.0-jammy
+FROM node:20-slim
 
 WORKDIR /app
 
-# defined BEFORE install so it goes to the right place
-ENV PLAYWRIGHT_BROWSERS_PATH=/app/ms-playwright
+# Install Chromium and all necessary shared libraries for Playwright
+# This is the "brute-force" list to ensure it works on Debian/Ubuntu slim images
+RUN apt-get update && apt-get install -y \
+    chromium \
+    libnss3 \
+    libfreetype6 \
+    libfreetype6-dev \
+    libharfbuzz-dev \
+    ca-certificates \
+    fonts-freefont-ttf \
+    nodejs \
+    npm \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set ENV to tell Playwright to use the system-installed Chromium
+# This skips the need for Playwright to download its own version
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
 
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
-# Copy storage folder for static assets
 COPY --from=builder /app/storage ./storage
-
-# Explicitly install chromium to the CUSTOM path defined by ENV above
-RUN npx playwright install chromium
 
 EXPOSE 3100
 CMD ["npm", "run", "start:prod"]
