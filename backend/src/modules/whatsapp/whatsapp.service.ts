@@ -197,7 +197,7 @@ export class WhatsappService {
         const customers = await this.prisma.customer.findMany({ where: { optedIn: true } });
         console.log(`[WhatsApp] Sending campaign "${campaign.title_de}" to ${customers.length} subscribers.`);
 
-        const baseUrl = process.env.PUBLIC_BASE_URL || 'http://localhost:3100';
+        const baseUrl = process.env.PUBLIC_BASE_URL || 'https://promoly-backend.onrender.com';
         // Ensure PDF link logic matches handleSendCurrentFlyer
         const asset = await this.prisma.flyerAsset.findFirst({
             where: { campaignId: campaign.id, type: 'BESTOF_PDF' },
