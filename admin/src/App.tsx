@@ -1375,8 +1375,8 @@ function FlyerEditor() {
                                                 onMouseDown={(e) => e.stopPropagation()}
                                                 style={{
                                                     position: 'absolute',
-                                                    top: -14, right: -14,
-                                                    width: 36, height: 36,
+                                                    top: 4, right: 4, // FIX: Move inside to avoid overflow clipping
+                                                    width: 28, height: 28, // Slightly smaller
                                                     borderRadius: '50%',
                                                     background: '#ff4444',
                                                     border: '2px solid white',
