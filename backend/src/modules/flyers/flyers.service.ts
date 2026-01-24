@@ -132,7 +132,8 @@ export class FlyersService {
         });
         const page = await browser.newPage({ viewport: { width, height } });
         await page.setContent(html, { waitUntil: 'networkidle' });
-        const pngBuffer = await page.screenshot({ type: 'png', fullPage: false });
+        // FIX: Capture full page to avoid cropping items
+        const pngBuffer = await page.screenshot({ type: 'png', fullPage: true });
         await browser.close();
         return pngBuffer as Buffer;
     }
@@ -161,6 +162,7 @@ export class FlyersService {
         const A4_HEIGHT = 1123;
         const COL_WIDTH = A4_WIDTH / 12; // ~66.16px
         const ROW_HEIGHT = 60;
+        const FIXED_HEADER_HEIGHT = 160; // Fixed visual height
 
         let width = A4_WIDTH;
         // Calculate dynamic height based on items max Y
@@ -255,26 +257,33 @@ export class FlyersService {
 
         const itemsHtml = campaign.items.map(renderItem).join('');
 
-        // CSS FIX HERE: changed background-size from cover to 100% 1123px (A4 height) to repeat properly
         return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8">
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { 
-      width: ${width}px; 
-      height: ${totalHeight}px; 
-      font-family: 'Inter', sans-serif; 
-      background: ${campaign.backgroundImage ? `url(https://promoly-backend.onrender.com/files/${campaign.backgroundImage}) center top repeat-y` : theme.bg}; 
-      background-size: ${width}px ${A4_HEIGHT}px;
-      color: ${theme.text}; 
-      position: relative; 
-      overflow: hidden; 
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+  body { margin: 0; padding: 0; font-family: 'Inter', sans-serif; background: white; overflow: hidden; }
+  
+  /* FIX: Absolute Header */
+  .header { 
+    position: absolute; 
+    top: 0; 
+    left: 0; 
+    width: 100%; 
+    height: 160px; /* Matches FIXED_HEADER_HEIGHT */
+    background: #e2001a; 
+    color: white; 
+    padding: 20px; 
+    box-sizing: border-box; 
+    z-index: 100;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
   }
   
-  /* Header */
-  .header { position: absolute; top: 0; left: 0; width: 100%; height: 160px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
-  .date-band { background: ${theme.accent}; color: #fff; padding: 4px 12px; border-radius: 4px; font-weight: bold; font-size: 14px; margin-bottom: 10px; }
-  .hero-title { font-size: 48px; font-weight: 900; text-transform: uppercase; text-shadow: 2px 2px 5px rgba(0,0,0,0.4); color: #fff; margin: 0; }
+  .date-band { background: white; color: #e2001a; padding: 4px 12px; display: inline-block; font-weight: bold; border-radius: 4px; margin-bottom: 10px; font-size: 14px; }
+  .hero-title { font-size: 48px; font-weight: 900; line-height: 1.1; text-transform: uppercase; text-shadow: 2px 2px 5px rgba(0,0,0,0.4); margin: 0; }
   
   /* Grid Items */
   .product-card { background: #fff; border-radius: 8px; padding: 8px; display: flex; flex-direction: column; box-shadow: 0 4px 10px rgba(0,0,0,0.2); overflow: hidden; }
@@ -287,7 +296,7 @@ export class FlyersService {
   .label { position: absolute; top: 10px; left: -2px; background: ${theme.accent}; color: #fff; padding: 2px 10px; font-size: 10px; font-weight: bold; clip-path: polygon(0 0, 100% 0, 90% 50%, 100% 100%, 0 100%); z-index: 12; }
   
   .product-image { flex: 1; display: flex; align-items: center; justify-content: center; margin-bottom: 5px; min-height: 80px; }
-  .product-image img { max-width: 100%; max-height: 100%; object-fit: contain; transform: scale(1.1); }
+  .product-image img { max-width: 100%; max-height: 100%; object-fit: contain; }
   
   .info-block { margin-top: auto; text-align: center; }
   .product-name { font-weight: bold; font-size: 13px; line-height: 1.1; margin-bottom: 4px; color: #111; }
@@ -315,6 +324,7 @@ export class FlyersService {
   </div>
   ${itemsHtml}
 </body></html>`;
+
     }
 
 
@@ -326,6 +336,7 @@ export class FlyersService {
         const targetDir = path.join(storageDir, folder);
         if (!fs.existsSync(targetDir)) await mkdir(targetDir, { recursive: true });
 
+        // Clean filename without spaces
         const filename = `${campaignId}-${Date.now()}.${ext}`;
         const filePath = path.join(targetDir, filename);
 
