@@ -322,11 +322,18 @@ export class FlyersService {
 
 
     private async saveFile(buffer: Buffer, campaignId: string, folder: string, ext: string) {
-        const storageDir = process.env.STORAGE_DIR || path.join(__dirname, '..', '..', '..', '..', 'storage');
+        // Fix: Use process.cwd() to match ServeStaticModule config
+        const storageDir = process.env.STORAGE_DIR || path.join(process.cwd(), 'storage');
+
         const targetDir = path.join(storageDir, folder);
         if (!fs.existsSync(targetDir)) await mkdir(targetDir, { recursive: true });
+
         const filename = `${campaignId}-${Date.now()}.${ext}`;
-        await writeFile(path.join(targetDir, filename), buffer);
+        const filePath = path.join(targetDir, filename);
+
+        await writeFile(filePath, buffer);
+        console.log(`[FlyersService] Saved file to: ${filePath} (${buffer.length} bytes)`);
+
         return `${folder}/${filename}`;
     }
 
