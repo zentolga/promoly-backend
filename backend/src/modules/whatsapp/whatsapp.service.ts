@@ -211,10 +211,16 @@ export class WhatsappService {
 
         let count = 0;
         for (const customer of customers) {
+            // 1. Send Text + Link
             await this.sendMessage(customer.phoneE164, message);
-            count++;
-            // Small delay to prevent rate limit issues if any
+
+            // 2. Send PDF File (Wait slightly to ensure order)
             await new Promise(r => setTimeout(r, 1000));
+            await this.sendPdfMessage(customer.phoneE164, pdfLink, campaign.title_de);
+
+            count++;
+            // Delay for rate limiting
+            await new Promise(r => setTimeout(r, 2000));
         }
 
         return { success: true, recipients: count };
