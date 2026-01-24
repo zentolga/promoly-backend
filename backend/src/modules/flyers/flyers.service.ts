@@ -181,18 +181,16 @@ export class FlyersService {
 
         const renderItem = (item: any) => {
             const x = item.posX * COL_WIDTH;
-            const y = item.posY * ROW_HEIGHT;
+            // FIX: Add offset for A4 format to prevent header overlap
+            let y = item.posY * ROW_HEIGHT;
+            if (format === 'A4') {
+                y += 160; // HEADER_OFFSET
+            }
+
             const w = item.width * COL_WIDTH;
             const h = item.height * ROW_HEIGHT;
 
             // ... (rest of renderItem) ... 
-            // Note: I cannot replace the whole renderItem here as it's too big, 
-            // verifying if replace_file_content handles partial function content. 
-            // It replaces CONTIGUOUS blocks. I should probably just replace the methods and the start of buildFlyer.
-            // Since I need to touch CSS at line 238, I will include renderItem in the context or skip it.
-            // Actually, I can just replace methods above and then start of buildFlyerHtml.
-            // Wait, the ReplacementContent must be the full block.
-            // I'll assume the previous step showed lines 140-302.
 
             // --- RENDER LOGO ---
             if (item.type === 'logo') {
