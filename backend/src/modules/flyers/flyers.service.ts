@@ -132,6 +132,9 @@ export class FlyersService {
         });
         const page = await browser.newPage({ viewport: { width, height } });
         await page.setContent(html, { waitUntil: 'networkidle' });
+        // Wait for images/fonts to settle
+        await page.waitForTimeout(1000); // 1s delay
+
         // FIX: Capture full page to avoid cropping items
         const pngBuffer = await page.screenshot({ type: 'png', fullPage: true });
         await browser.close();

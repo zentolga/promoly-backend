@@ -1375,17 +1375,18 @@ function FlyerEditor() {
                                                 onMouseDown={(e) => e.stopPropagation()}
                                                 style={{
                                                     position: 'absolute',
-                                                    top: 4, right: 4, // FIX: Move inside to avoid overflow clipping
-                                                    width: 28, height: 28, // Slightly smaller
+                                                    top: 4, right: 4,
+                                                    width: 30, height: 30, // Larger
                                                     borderRadius: '50%',
                                                     background: '#ff4444',
                                                     border: '2px solid white',
                                                     color: 'white',
                                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                     cursor: 'pointer',
-                                                    zIndex: 9999,
-                                                    boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
-                                                    fontWeight: '900', fontSize: 20,
+                                                    zIndex: 100000, // Topmost
+                                                    pointerEvents: 'auto', // Capture clicks
+                                                    boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
+                                                    fontWeight: '900', fontSize: 18,
                                                     lineHeight: 1
                                                 }}
                                                 title="Sil"
