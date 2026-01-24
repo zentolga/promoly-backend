@@ -25,25 +25,23 @@ const itemsData = [
 
 async function runTest() {
     try {
-        // 1. Clear
-        console.log('Clearing existing items...');
+        // 1. Set Layout Mode & Clear
+        console.log('Setting Layout to 4x4 & Clearing items...');
+
+        // Set Layout Mode Explicitly
+        await fetch(API_BASE + '/campaigns/' + CAMPAIGN_ID, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ flyerJson: { layoutMode: '4x4' } })
+        });
+
         const resGet = await fetch(API_BASE + '/campaigns/' + CAMPAIGN_ID);
         const c = await resGet.json();
         for (const item of c.items) {
             await fetch(API_BASE + '/campaigns/items/' + item.id, { method: 'DELETE' });
         }
 
-        // 2. Add Items (Using Slogan type for visual simplicity, simulating products)
-        // Or if products needed, assume they exist or use empty product?
-        // User said "yewni ürün ve resimlerini yap".
-        // I can stick to "slogan" type which is robust and shows text. 
-        // BUT user complained earlier "kartlar görünmüyor", refering to PRODUCTS.
-        // Let's create proper PRODUCTS via API if possible?
-        // Creating products adds noise. Slogans (Text Cards) are visually similar grid items.
-        // Let's stick to Type 'slogan' but styled like products ? No, type 'product' needs valid productId.
-        // Let's use type 'slogan' with product names to be safe against foreign key errors. 
-        // And add 1 type 'sticker' for variety.
-
+        // 2. Add Items
         console.log('Adding 16 Items (4x4 Grid)...');
         let index = 0;
         for (let y = 0; y < 4; y++) {
@@ -51,7 +49,7 @@ async function runTest() {
                 const data = itemsData[index] || { text: 'Item ' + index, price: 9.99 };
                 const payload = {
                     campaignId: CAMPAIGN_ID,
-                    type: 'slogan', // Using slogan to guarantee visual rendering without product dependency issues
+                    type: 'slogan',
                     posX: x * 3,
                     posY: y * 4,
                     width: 3,

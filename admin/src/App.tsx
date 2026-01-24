@@ -937,8 +937,13 @@ function FlyerEditor() {
             return;
         }
 
-        await api.post(`/campaigns/${campaignId}/items`, {
+        // Optimistic Update: Add item immediately to state
+        const tempId = 'temp-' + Date.now();
+        const optimisticItem = {
+            id: tempId,
             productId,
+            type: 'product',
+            product: product, // Assuming product object is available in scope
             oldPrice: 9.99,
             newPrice: 6.99,
             badgeText: '-30%',
@@ -946,8 +951,37 @@ function FlyerEditor() {
             posY: foundSlot.y * factorH,
             width: factorW,
             height: factorH,
-        });
-        api.get(`/campaigns/${campaignId}`).then(setCampaign);
+            zIndex: 10
+        };
+
+        setCampaign((prev: any) => ({
+            ...prev,
+            items: [...(prev.items || []), optimisticItem]
+        }));
+
+        try {
+            await api.post(`/campaigns/${campaignId}/items`, {
+                productId,
+                oldPrice: 9.99,
+                newPrice: 6.99,
+                badgeText: '-30%',
+                posX: foundSlot.x * factorW,
+                posY: foundSlot.y * factorH,
+                width: factorW,
+                height: factorH,
+            });
+            // Refresh from server to get real ID
+            const res = await api.get(`/campaigns/${campaignId}`);
+            setCampaign(res);
+        } catch (e) {
+            console.error('Add failed', e);
+            // Rollback on error
+            setCampaign((prev: any) => ({
+                ...prev,
+                items: prev.items.filter((i: any) => i.id !== tempId)
+            }));
+            alert('Fehler beim Hinzufügen');
+        }
     };
 
     // ... (updateItem, etc)
