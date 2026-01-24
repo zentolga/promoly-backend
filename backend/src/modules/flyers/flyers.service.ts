@@ -5,6 +5,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { writeFile, mkdir } from 'fs/promises';
 import * as QRCode from 'qrcode';
+import PDFDocument from 'pdfkit';
 
 const THEMES = {
     kaufland_red: { bg: '#fff', accent: '#e60014', badge: '#e60014', text: '#333' },
@@ -91,36 +92,39 @@ export class FlyersService {
     }
 
     private async renderToPdf(html: string, campaignId: string) {
-        const browserPath = this.resolveBrowserPath();
-        console.log(`[FlyersService] Launching Browser with path: ${browserPath || 'Auto-detect'}`);
+        // Step 1: Render to PNG first (more reliable)
+        const pngBuffer = await this.renderToPngInternal(html, 794, 1123);
 
-        const browser = await chromium.launch({
-            executablePath: browserPath,
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu'
-            ],
-            headless: true
+        // Step 2: Convert PNG to PDF using pdfkit
+        return new Promise<string>(async (resolve, reject) => {
+            try {
+                const doc = new PDFDocument({
+                    size: [794, 1123], // A4 at 96 DPI
+                    margin: 0
+                });
+
+                const chunks: Buffer[] = [];
+                doc.on('data', (chunk) => chunks.push(chunk));
+                doc.on('end', async () => {
+                    const pdfBuffer = Buffer.concat(chunks);
+                    const filePath = await this.saveFile(pdfBuffer, campaignId, 'flyers', 'pdf');
+                    resolve(filePath);
+                });
+                doc.on('error', reject);
+
+                // Add PNG image to PDF, filling the entire page
+                doc.image(pngBuffer, 0, 0, { width: 794, height: 1123 });
+                doc.end();
+            } catch (error) {
+                reject(error);
+            }
         });
-
-        try {
-            const page = await browser.newPage();
-            // Rest of the function...
-            await page.setContent(html, { waitUntil: 'networkidle' });
-            const pdfBuffer = await page.pdf({ width: '794px', height: '1123px', printBackground: true });
-            await browser.close();
-            return this.saveFile(pdfBuffer, campaignId, 'flyers', 'pdf');
-        } catch (error) {
-            await browser.close();
-            throw error;
-        }
     }
 
-    private async renderToPng(html: string, campaignId: string, width: number, height: number, suffix: string) {
+    // Internal PNG renderer that returns buffer (used by both PNG export and PDF)
+    private async renderToPngInternal(html: string, width: number, height: number): Promise<Buffer> {
         const executablePath = this.resolveBrowserPath();
-        console.log(`Launching Browser with path: ${executablePath || 'Auto-detect'}`);
+        console.log(`[FlyersService] Launching Browser with path: ${executablePath || 'Auto-detect'}`);
 
         const browser = await chromium.launch({
             executablePath,
@@ -130,6 +134,12 @@ export class FlyersService {
         await page.setContent(html, { waitUntil: 'networkidle' });
         const pngBuffer = await page.screenshot({ type: 'png', fullPage: false });
         await browser.close();
+        return pngBuffer as Buffer;
+    }
+
+
+    private async renderToPng(html: string, campaignId: string, width: number, height: number, suffix: string) {
+        const pngBuffer = await this.renderToPngInternal(html, width, height);
         return this.saveFile(pngBuffer, campaignId, 'flyers', `${suffix}.png`);
     }
 
