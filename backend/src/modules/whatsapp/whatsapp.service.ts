@@ -131,11 +131,13 @@ export class WhatsappService {
     }
 
     async sendPdfMessage(phone: string, pdfUrl: string, filename: string) {
-        const apiKey = '19a2db8c9b1dbe57f7065a59786479204d7f8887b2e219854306442cb01635bf'; // Hardcoded fix
-        const url = 'https://wasenderapi.com/api/send-media';
+        // Hardcoded API Key (as per existing code)
+        const apiKey = '19a2db8c9b1dbe57f7065a59786479204d7f8887b2e219854306442cb01635bf';
+        // CORRECT ENDPOINT: send-message (Unified endpoint)
+        const url = 'https://wasenderapi.com/api/send-message';
 
         try {
-            console.log('[WhatsApp] Sending PDF to', phone);
+            console.log('[WhatsApp] Sending PDF via documentUrl to', phone);
             const res = await fetch(url, {
                 method: 'POST',
                 headers: {
@@ -144,10 +146,9 @@ export class WhatsappService {
                 },
                 body: JSON.stringify({
                     to: phone.includes('+') ? phone : `+${phone}`,
-                    media: pdfUrl,
-                    type: 'document',
-                    filename: `${filename}.pdf`,
-                    caption: filename
+                    text: filename, // Optional caption
+                    documentUrl: pdfUrl, // CORRECT PARAMETER
+                    fileName: `${filename}.pdf` // Correct parameter casing (camelCase commonly accepted)
                 })
             });
             const textResponse = await res.text();
