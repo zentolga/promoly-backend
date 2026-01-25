@@ -2,7 +2,7 @@
     "name": "promoly-backend",
     "version": "1.0.0",
     "scripts": {
-        "build": "nest build",
+        "build": "nest build && cd ../admin && npm install && npm run build",
         "start": "node dist/src/main",
         "start:dev": "nest start --watch",
         "start:prod": "node dist/src/main",

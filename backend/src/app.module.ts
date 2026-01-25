@@ -17,23 +17,30 @@ import { BroadcastModule } from './modules/broadcast/broadcast.module';
 
 @Module({
     imports: [
-        ServeStaticModule.forRoot({
-            rootPath: join(process.cwd(), 'storage'),
-            serveRoot: '/files',
-        }),
-        PrismaModule,
-        StoreProfileModule,
-        CategoriesModule,
-        ProductsModule,
-        CampaignsModule,
-        CustomersModule,
-        StatsModule,
-        FilesModule,
-        AuthModule,
-        FlyersModule,
-        PublicModule,
-        WhatsappModule,
-        BroadcastModule,
-    ],
+        imports: [
+            // Serve Admin Frontend
+            ServeStaticModule.forRoot({
+                rootPath: join(process.cwd(), '../admin/dist'),
+                exclude: ['/api/(.*)', '/files/(.*)', '/c/(.*)'],
+            }),
+            // Serve Storage Files
+            ServeStaticModule.forRoot({
+                rootPath: join(process.cwd(), 'storage'),
+                serveRoot: '/files',
+            }),
+            PrismaModule,
+            StoreProfileModule,
+            CategoriesModule,
+            ProductsModule,
+            CampaignsModule,
+            CustomersModule,
+            StatsModule,
+            FilesModule,
+            AuthModule,
+            FlyersModule,
+            PublicModule,
+            WhatsappModule,
+            BroadcastModule,
+        ],
 })
 export class AppModule { }
